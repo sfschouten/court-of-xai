@@ -1,0 +1,5 @@
+# Implicit value for clarity
+--index-url https://pypi.python.org/simple/
+
+# Install modules from setup.py, including and test modules
+-e .[testing]
