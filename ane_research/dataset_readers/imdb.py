@@ -12,8 +12,9 @@ from allennlp.data.tokenizers import Token
 @DatasetReader.register('imdb_csv')
 class ImdbCsvDatasetReader(DatasetReader):
   '''Reads IMDB reviews and labels from a CSV file'''
-  def __init__(self, token_indexers: Dict[str, TokenIndexer] = None, lazy: bool = False) -> None:
+  def __init__(self, token_indexers: Dict[str, TokenIndexer] = None, max_review_length: int = None, lazy: bool = False) -> None:
     super().__init__(lazy=lazy)
+    self.max_review_length = max_review_length
     self._token_indexers = token_indexers or {'tokens': SingleIdTokenIndexer()}
 
   @overrides
@@ -25,6 +26,8 @@ class ImdbCsvDatasetReader(DatasetReader):
           continue
         review, sentiment = line.split(',')
         review = review.split(' ')
+        if self.max_review_length and len(review) > self.max_review_length:
+          continue
         instance = self.text_to_instance(review, sentiment)
         if instance is not None:
           yield instance
