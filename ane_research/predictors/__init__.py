@@ -1,0 +1,1 @@
+from ane_research.predictors.jain_wallace_attention_binary_predictor import JWAEDPredictor

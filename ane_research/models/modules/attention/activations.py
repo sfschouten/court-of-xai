@@ -14,10 +14,11 @@ def masked_sparsemax(weight_vector: torch.Tensor, masks: torch.Tensor) -> torch.
     - masks (torch.Tensor): Boolean tensor specify mask indices
 
   Returns:
-      torch.Tensor: Sparse distribution
+    torch.Tensor: Sparse distribution
   '''
-  return sparsemax(replace_masked_values(weight_vector, masks, -float('inf')), dim=-1)
-
+  a = replace_masked_values(weight_vector, masks, -float('inf'))
+  attention = sparsemax(a, dim=-1)
+  return attention
 
 def masked_softmax(weight_vector: torch.Tensor, masks: torch.Tensor) -> torch.Tensor:
   '''Masked Softmax Activation
@@ -27,6 +28,13 @@ def masked_softmax(weight_vector: torch.Tensor, masks: torch.Tensor) -> torch.Te
     masks (torch.Tensor): Boolean tensor specify mask indices
 
   Returns:
-      torch.Tensor: Dense distribution
+    torch.Tensor: Dense distribution
   '''
-  return  torch.nn.Softmax(dim=-1)(replace_masked_values(weight_vector, masks, -float('inf')), dim=-1)
+  a = replace_masked_values(weight_vector, masks, -float('inf'))
+  attention = torch.nn.Softmax(dim=-1)(weight_vector)
+  return attention
+
+activation_function_map = {
+  'softmax': masked_softmax,
+  'sparsemax': masked_sparsemax
+}

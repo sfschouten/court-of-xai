@@ -1,1 +1,1 @@
-from ane_research.models.binary_classification import JWAED
+from ane_research.models.jain_wallace_attention_binary_classifier import JWAED

@@ -26,11 +26,11 @@ class PylintCommand(distutils.cmd.Command):
 
 
 # Package meta-data
-NAME = 'ane-research-fact-ai'
+NAME = 'attention-is-not-explanation-fact-ai'
 DESCRIPTION = 'UVA FACT-AI Course Project - Attention is Not Explanation'
 URL = 'https://github.com/michaeljneely/fact-ai-2020'
 EMAIL = 'michael.neely@student.uva.nl'
-AUTHOR = 'Michael Neely, Stefan F. Schouten, Nikolas Erkinheimo'
+AUTHOR = 'Michael J. Neely, Stefan F. Schouten'
 REQUIRES_PYTHON = '~=3.7.0'
 VERSION = '0.0.1'
 
@@ -39,20 +39,23 @@ REQUIRED = [
   'nltk',
   'tqdm',
   'numpy',
-  'allennlp',
+  'allennlp==0.9.0',
   'scipy',
   'seaborn',
   'gensim',
-  'spacy',
+  'spacy==2.1.9',
   'matplotlib',
   'ipython',
   'scikit_learn',
   'entmax',
-  'shap',
+  'requests',
+  'python-json-logger'
 ]
 
 SETUP = [
-  'pytest-runner'
+  'pytest-runner',
+  'torch',
+  'torchtext'
 ]
 
 TEST = [

@@ -1,22 +1,15 @@
-# fact-ai-2020
- Fairness, Accountability, Confidentiality and Transparency in AI Course Assignment, January 2020
+# attention_not_explanation_research
 
 ## Setup
 
 ```shell
-  python3 -m venv v-ane-research
-  source v-ane-research/bin/activate
-  pip install --upgrade pip
-  pip install torch torchtext
-  pip install -r requirements.txt
+ python3 -m venv v-ane-research
+ source v-ane-research/bin/activate
+ pip install torch torchvision torchtext
+ pip install -r requirements.txt
+ python -m spacy download en
 ```
 
-## Running Experiments
+## Notes
 
-### Run Binary Sentiment Classification on SST Dataset
-
-From root:
-
-```shell
-  allennlp train ane_research/experiments/sst_binary_sentiment.jsonnet -s outputs --include-package ane_research
-```
+1. Pre-split data sets are included in the repository for an 'apples to apples' comparison with Jain and Wallace's results
