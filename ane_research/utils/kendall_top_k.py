@@ -1,4 +1,4 @@
-"""Top-k kendall-tau distance.
+'''Top-k kendall-tau distance.
 
 This module generalise kendall-tau as defined in [1].
 It returns a distance: 0 for identical (in the sense of top-k) lists and 1 if completely different.
@@ -14,8 +14,8 @@ Example:
 Author: Alessandro Checco
     https://github.com/AlessandroChecco
 References
-[1] Fagin, Ronald, Ravi Kumar, and D. Sivakumar. "Comparing top k lists." SIAM Journal on Discrete Mathematics 17.1 (2003): 134-160.
-"""
+[1] Fagin, Ronald, Ravi Kumar, and D. Sivakumar. 'Comparing top k lists.' SIAM Journal on Discrete Mathematics 17.1 (2003): 134-160.
+'''
 
 # pylint: disable=E1101
 # pylint incorrectly identifies some types as tuples
@@ -26,10 +26,10 @@ import scipy.stats as stats
 import scipy.special as special
 
 def kendall_top_k(a, b, k=None, kIsNonZero=False, p=0.5): 
-    """
+    '''
     kendall_top_k(np.array,np.array,k,p)
     This function generalise kendall-tau as defined in 
-        [1] Fagin, Ronald, Ravi Kumar, and D. Sivakumar. "Comparing top k lists." SIAM Journal on Discrete Mathematics 17.1 (2003): 134-160.
+        [1] Fagin, Ronald, Ravi Kumar, and D. Sivakumar. 'Comparing top k lists.' SIAM Journal on Discrete Mathematics 17.1 (2003): 134-160.
     It returns a distance: 1 for identical (in the sense of top-k) lists and -1 if completely different.
 
     Example:
@@ -41,7 +41,7 @@ def kendall_top_k(a, b, k=None, kIsNonZero=False, p=0.5):
             $ kendall_top_k(a,b,k=4)
 
     If the kIsNonZero option is True, k is set to the amount of non-zero values in a or b, depending on which has least.
-    """
+    '''
 
     a = np.array(a)
     b = np.array(b)
@@ -49,7 +49,7 @@ def kendall_top_k(a, b, k=None, kIsNonZero=False, p=0.5):
     if kIsNonZero:
         anz, bnz = np.count_nonzero(a), np.count_nonzero(b)
         k = min(np.count_nonzero(a), np.count_nonzero(b))
-        #print("anz={}, bnz={}, k={}".format(anz, bnz, k))
+        #print('anz={}, bnz={}, k={}'.format(anz, bnz, k))
     elif k is None:
         k = a.size
 
@@ -68,7 +68,7 @@ def kendall_top_k(a, b, k=None, kIsNonZero=False, p=0.5):
 
 
     if np.isnan(kendall): # degenerate case with only one item (not defined by Kendall)
-        #print("DEGENERATE CASE <= 1 in common")
+        #print('DEGENERATE CASE <= 1 in common')
         kendall = 0
 
     #case 2 (& 3 ?)
@@ -83,20 +83,10 @@ def kendall_top_k(a, b, k=None, kIsNonZero=False, p=0.5):
 
     kendall += test
 
-    # test
-    #print(only_in_a)
-    #print(only_in_b)
-    #test2 = (k-common_items.size)*(k+common_items.size+1) - np.sum(only_in_a+1) - np.sum(only_in_b+1)
-    #print(test2)
-    #kendall += test2
-
     # case 4
     kendall += 2 * p * special.binom(k-common_items.size, 2)
 
-    # case 3?
-    #test3 = (k - common_items.size)**2
-    #kendall += test3
-    #print(kendall)
+    # case 3
     kendall /= (only_in_a.size + only_in_b.size + common_items.size)**2  #normalization
     kendall = -2 * kendall + 1 # change to correct range
 

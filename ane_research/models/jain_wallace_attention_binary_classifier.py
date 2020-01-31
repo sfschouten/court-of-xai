@@ -111,11 +111,7 @@ class JWAED(Model):
     Does a simple argmax over the class probabilities, converts indices to string labels, and
     adds a ``'label'`` key to the dictionary with the result.
     '''
-    # print(output_dict)
     class_probabilities = output_dict['class_probabilities']
-    # print(f'Class probabilities shape: {class_probabilities.shape}')
     predictions = class_probabilities.cpu().data.numpy()
-    # print(predictions.shape)
     output_dict['label'] = np.argmax(predictions, axis=1)
-    # print(f'The new label shape is: { output_dict["label"][0].shape}')
     return output_dict

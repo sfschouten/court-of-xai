@@ -10,6 +10,7 @@ from ane_research.config import Config
 from ane_research.evaluators import JWAEDEvaluator
 
 class Experiment():
+  ''''Helper class to make running experiments and generating csv files and images as easy as possible'''
   def __init__(self, experiment_file_path: str):
     self.experiment_file_path = experiment_file_path
     _, self.experiment_file_name = os.path.split(self.experiment_file_path)
@@ -19,26 +20,26 @@ class Experiment():
     self.out_path = f'outputs/{self.experiment_name}/{self.timestamp}'
     self.model_path = self.out_path + '/model.tar.gz'
 
-  def train(self):
+  def train(self) -> None:
     # AllenNLP release 0.9.0 does not support include_package_argument in train_model function.
     # So this unfortunately needs to be run as a subprocess command
     subprocess.run(['allennlp', 'train', self.experiment_file_path, '-s', self.out_path, '--include-package', Config.package_name])
 
-  def evaluate(self):
+  def evaluate(self) -> None:
     self.evaluator = JWAEDEvaluator(model_path = self.model_path, calculate_on_init=True)
 
-  def generate_and_save_artifacts(self):
+  def generate_and_save_artifacts(self) ->  None:
     self.evaluator.generate_and_save_correlation_data_frames()
     self.evaluator.generate_and_save_correlation_graphs()
 
-  def get_figure_paths(self):
+  def get_figure_paths(self) -> List[str]:
     figure_paths = []
     for file in os.listdir(self.evaluator.graph_path):
       if fnmatch.fnmatch(file, '*.png'):
         figure_paths.append(self.evaluator.graph_path + '/' + file)
     return figure_paths
 
-def run_all_experiments_in_dir(dir_path: str = 'experiments'):
+def run_all_experiments_in_dir(dir_path: str = 'experiments') -> List[Experiment]:
   '''Run all AllenNLP experiments in the given directory'''
   experiments = []
   for file in os.listdir(dir_path):

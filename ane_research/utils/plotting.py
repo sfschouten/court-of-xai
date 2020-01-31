@@ -1,3 +1,5 @@
+'''Utility functions to generate plots'''
+
 import matplotlib as mpl
 mpl.use('PS')
 import matplotlib.gridspec as gridspec

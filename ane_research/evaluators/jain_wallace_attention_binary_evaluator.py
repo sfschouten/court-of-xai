@@ -1,30 +1,28 @@
-from ane_research.models import JWAED
-from allennlp.models import Model
-from allennlp.predictors import Predictor
-from allennlp.interpret import SaliencyInterpreter
-from allennlp.interpret.saliency_interpreters import SimpleGradient
-from allennlp.data.dataset_readers import StanfordSentimentTreeBankDatasetReader
-import numpy as np
-from allennlp.data.dataset import Batch
-# from ane_research.custom_metrics.kendall_top_k import kendall_top_k
-from allennlp.models.archival import load_archive
-import torch 
-from typing import List, Tuple
-from allennlp.nn import util
-from ane_research.predictors import JWAEDPredictor
-from ane_research.config import Config
-from allennlp.data.iterators import BucketIterator
-from allennlp.nn import util
+from copy import deepcopy
+import logging
 import math
-from ane_research.utils.kendall_top_k import kendall_top_k
+import os
+from typing import List, Tuple
+
+from allennlp.data.dataset import Batch
+from allennlp.models import Model
+from allennlp.models.archival import load_archive
+from allennlp.predictors import Predictor
+from allennlp.nn import util
+
+import numpy as np
 import pandas as pd
 from scipy.stats import kendalltau
+import torch
 from tqdm import tqdm
-import logging
-from copy import deepcopy
-import os
-import ane_research.utils.plotting as plotting
+
+from ane_research.config import Config
+from ane_research.models import JWAED
+from ane_research.predictors import JWAEDPredictor
 from ane_research.utils.correlation import Correlation, CorrelationMeasures
+from ane_research.utils.kendall_top_k import kendall_top_k
+import ane_research.utils.plotting as plotting
+
 
 def batch(iterable, n=1):
   l = len(iterable)
@@ -46,7 +44,7 @@ class JWAEDEvaluator():
 
     Args
       - model_path (str): Path to archived model generated during an AllenNLP training run
-      - calculate_on_init (bool, default: False): Calculate attention weights, gradients, and feature erasure predictions on class initialization
+      - calculate_on_init (bool, default: False): Calculate feature importance measures and correlations on class initialization
   '''
   def __init__(self, model_path: str, calculate_on_init: bool = False):
     self.precalculate = calculate_on_init
@@ -95,14 +93,14 @@ class JWAEDEvaluator():
     ]
 
     if self.precalculate:
-      self.calculate_measures()
+      self.calculate_feature_importance_measures()
       self.calculate_correlations()
 
   def _calculate_average_datapoint_length(self):
     num_tokens_per_datapoint = [len(instance.fields['tokens']) for instance in self.test_instances]
     return math.floor(np.mean(num_tokens_per_datapoint))
 
-  def calculate_measures(self):
+  def calculate_feature_importance_measures(self):
     self.predictions = []
     self.feature_erasure_predictions = []
     self.attention_weights = []
@@ -176,6 +174,3 @@ class JWAEDEvaluator():
       plotting.annotate(ax=axes, title=plot_title)
       plotting.adjust_gridspec()
       plotting.save_axis_in_file(fig, axes, self.graph_path, plot_title)
-
-# if __name__ == "__main__":
-#   yo = JWAEDEvaluator('/Users/michaelneely/Documents/attention_not_explanation_research/outputs/sst_bilstm_tanh/model.tar.gz', True)

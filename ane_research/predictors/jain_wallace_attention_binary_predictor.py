@@ -1,16 +1,18 @@
 '''AllenNLP Predictor class for the Jain Wallace Attention Binary Classification model'''
+
+from copy import deepcopy
 from overrides import overrides
+import numpy as np
+import torch
+from typing import List, Dict
 
 from allennlp.common.util import JsonDict, sanitize
 from allennlp.data import Instance
-from allennlp.predictors.predictor import Predictor
 from allennlp.data.dataset import Batch
-from typing import List, Dict
-from allennlp.nn import util
-import numpy as np
 from allennlp.data.fields import LabelField
-from copy import deepcopy
-import torch
+from allennlp.nn import util
+from allennlp.predictors.predictor import Predictor
+
 
 @Predictor.register('jain_wallace_attention_binary_classification_predictor')
 class JWAEDPredictor(Predictor):
@@ -48,6 +50,7 @@ class JWAEDPredictor(Predictor):
     return outputs
 
   def batch_instances_normalized_gradient_based_feature_importance(self, instances: List[Instance]) -> List[np.array]:
+    '''Get normalized gradient feature importance as per Jain and Wallace algorithm 1 (gt)'''
     batch_gradients, batch_outputs = self.get_gradients(instances)
     # See Attention is Not Explanation p4. - Algorithm 1 Feature Importance Computations
     batch_embedding = batch_outputs['embedding'].detach().cpu().numpy()
