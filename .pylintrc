@@ -1,7 +1,7 @@
 [MASTER]
 
 [MESSAGE CONTROL]
-
+disable=R,C,W
 
 [NAMING CONVENTIONS]
 
@@ -83,6 +83,7 @@ ignore-imports=no
 [TYPECHECK]
 
 ignore-on-opaque-inference=no
+generated-members=numpy.* ,torch.* ,cv2.* , cv.*
 
 
 [VARIABLES]
