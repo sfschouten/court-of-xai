@@ -1,0 +1,28 @@
+{
+  "python.pythonPath": "v-ane-research/bin/python",
+  "python.linting.pylintEnabled": true,
+  "python.linting.pylintPath": "v-ane-research/bin/pylint",
+  "python.linting.lintOnSave": true,
+  "python.linting.pylintArgs": [
+    "--errors-only",
+    "--generated-members=numpy.* ,torch.* ,cv2.* , cv.*"
+  ],
+  "editor.insertSpaces": true,
+  "editor.renderWhitespace": "all",
+  "editor.tabSize": 2,
+  "files.insertFinalNewline": true,
+  "files.exclude": {
+    "**/.git": true,
+    "**/.svn": true,
+    "**/.hg": true,
+    "**/CVS": true,
+    "**/.DS_Store": true,
+    "**/*.pyc": true,
+    "**/__pycache__": true,
+    "**/*.egg*": true,
+    "**/build": true,
+    "**/*.pytest_cache": true,
+    "**/dist": true,
+    "v-*": true
+  },
+}
