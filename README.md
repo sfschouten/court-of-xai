@@ -23,6 +23,8 @@ Prepare a Python virtual environment and install the necessary packages.
 
 ## Reproducing our Experiments
 
+From the base directory:
+
 ### Option 1
 
 Run all AllenNLP `Jsonnet` files in the `experiments` directory:
@@ -54,6 +56,9 @@ Trained models and experiment results are located in the `outputs` directory, in
 ## Extending our Research
 
 Since our code uses AllenNLP, you can easily add a new `Jsonnet` experiment file to the `experiments` directory.
+
+## Linting
+Simply run `python setup.py lint`
 
 ## Citation
 

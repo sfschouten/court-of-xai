@@ -16,6 +16,10 @@ Author: Alessandro Checco
 References
 [1] Fagin, Ronald, Ravi Kumar, and D. Sivakumar. "Comparing top k lists." SIAM Journal on Discrete Mathematics 17.1 (2003): 134-160.
 """
+
+# pylint: disable=E1101
+# pylint incorrectly identifies some types as tuples
+
 import math
 import numpy as np
 import scipy.stats as stats
@@ -61,8 +65,7 @@ def kendall_top_k(a, b, k=None, kIsNonZero=False, p=0.5):
 
     # case 1
     kendall = (1 - (stats.kendalltau(a[common_items], b[common_items])[0] / 2 + 0.5)) * common_items.size**2
-    #print(common_items)
-    #print(kendall)
+
 
     if np.isnan(kendall): # degenerate case with only one item (not defined by Kendall)
         #print("DEGENERATE CASE <= 1 in common")
