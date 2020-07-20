@@ -31,7 +31,8 @@ DESCRIPTION = 'UVA FACT-AI Course Project - Attention is Not Explanation'
 URL = 'https://github.com/michaeljneely/fact-ai-2020'
 EMAIL = 'michael.neely@student.uva.nl'
 AUTHOR = 'Michael J. Neely, Stefan F. Schouten'
-REQUIRES_PYTHON = '~=3.7.0'
+#REQUIRES_PYTHON = '~=3.7.0'
+REQUIRES_PYTHON = '>=3.6'
 VERSION = '0.0.1'
 
 REQUIRED = [
