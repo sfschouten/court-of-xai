@@ -8,7 +8,7 @@ from typing import List, Dict
 
 from allennlp.common.util import JsonDict, sanitize
 from allennlp.data import Instance
-from allennlp.data.dataset import Batch
+from allennlp.data.batch import Batch
 from allennlp.data.fields import LabelField
 from allennlp.nn import util
 from allennlp.predictors.predictor import Predictor

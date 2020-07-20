@@ -4,7 +4,6 @@ import math
 import os
 from typing import List, Tuple
 
-from allennlp.data.dataset import Batch
 from allennlp.models import Model
 from allennlp.models.archival import load_archive
 from allennlp.predictors import Predictor
@@ -71,7 +70,7 @@ class JWAEDEvaluator():
     # load test instances and split into batches
     self.test_data_path = self.archive.config.params['test_data_path']
     self.test_instances = self.predictor._dataset_reader.read(self.test_data_path)
-    self.batch_size = self.archive.config.params['iterator']['batch_size']
+    self.batch_size = self.archive.config.params['data_loader']['batch_sampler']['batch_size']
     self.batched_test_instances = list(batch(self.test_instances, self.batch_size))
     self.average_datapoint_length = self._calculate_average_datapoint_length()
 

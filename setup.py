@@ -39,7 +39,7 @@ REQUIRED = [
   'nltk',
   'tqdm',
   'numpy',
-  'allennlp==0.9.0',
+  'allennlp==1.0.0',
   'scipy',
   'seaborn',
   'gensim',

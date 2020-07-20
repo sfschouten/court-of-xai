@@ -11,19 +11,37 @@ from ane_research.evaluators import JWAEDEvaluator
 
 class Experiment():
   ''''Helper class to make running experiments and generating csv files and images as easy as possible'''
-  def __init__(self, experiment_file_path: str):
+  def __init__(self, experiment_file_path: str, recover: bool = False, outputs_path: str = 'outputs'):
+    self.recover = recover
+
     self.experiment_file_path = experiment_file_path
     _, self.experiment_file_name = os.path.split(self.experiment_file_path)
     self.experiment_name, extension = os.path.splitext(self.experiment_file_name)
-    self.dataset_name, self.attention_type, self.attention_activation_function = self.experiment_name.split('_')
-    self.timestamp = datetime.now(timezone.utc).isoformat()
-    self.out_path = f'outputs/{self.experiment_name}/{self.timestamp}'
+
+    if recover:
+      recent = get_most_recent_trained_model_paths()
+      recoveree = next(x for x in recent if x.startswith(f"{outputs_path}/{self.experiment_name}"))
+      self.out_path = recoveree
+    else:
+      timestamp = datetime.now(timezone.utc).isoformat()
+      self.out_path = f'{outputs_path}/{self.experiment_name}/{timestamp}'
+    
     self.model_path = self.out_path + '/model.tar.gz'
+ 
+    self.dataset_name, self.attention_type, self.attention_activation_function = self.experiment_name.split('_')
+
 
   def train(self) -> None:
     # AllenNLP release 0.9.0 does not support include_package_argument in train_model function.
     # So this unfortunately needs to be run as a subprocess command
-    subprocess.run(['allennlp', 'train', self.experiment_file_path, '-s', self.out_path, '--include-package', Config.package_name])
+    # TODO as of AllenNLP 1.0 this seems to be possible so do that instead!
+
+    cmd = ['allennlp', 'train', self.experiment_file_path, '-s', self.out_path, '--include-package', Config.package_name]
+
+    if self.recover:
+        cmd.append('--recover')
+
+    subprocess.run(cmd)
 
   def evaluate(self) -> None:
     self.evaluator = JWAEDEvaluator(model_path = self.model_path, calculate_on_init=True)
@@ -49,8 +67,8 @@ def run_all_experiments_in_dir(dir_path: str = 'experiments') -> List[Experiment
       experiments.append(experiment)
   return experiments
 
-def run_experiment(experiment_path: str):
-  experiment = Experiment(experiment_path)
+def run_experiment(experiment_path: str, recover: bool = False):
+  experiment = Experiment(experiment_path, recover = recover)
   experiment.train()
   experiment.evaluate()
   experiment.generate_and_save_artifacts()
@@ -66,6 +84,7 @@ def get_most_recent_trained_model_paths(outputs_path: str = 'outputs') -> List[s
     Returns
       - List[str]: List of paths to the most recent model run of each unique experiment
   '''
+
   most_recent_model_paths = []
   possible_matches = glob.glob(f'{outputs_path}/**/[0-9]*')
   output_groups = {}
@@ -77,6 +96,8 @@ def get_most_recent_trained_model_paths(outputs_path: str = 'outputs') -> List[s
       output_groups[dir_prefix] = [possible_match]
     else:
       output_groups[dir_prefix].append(possible_match)
+
   for group in output_groups.keys():
     most_recent_model_paths.append(max(output_groups[group], key=lambda s: datetime.fromisoformat(s.split('/')[-1])))
+
   return most_recent_model_paths

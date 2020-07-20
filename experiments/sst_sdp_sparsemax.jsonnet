@@ -42,14 +42,15 @@ local batch_size = 64;
       "activation_function": "sparsemax" 
     }
   },
-  "iterator": {
-    "type": "bucket",
-    "sorting_keys": [['tokens', 'num_tokens']],
-    "batch_size": batch_size
+  "data_loader": {
+    "batch_sampler": {
+      "type": "bucket",
+      "batch_size": batch_size
+    }
   },
   "trainer": {
     "num_epochs": 40,
-    "patience": 10,
+    "patience": 5,
     "cuda_device": -1,
     "validation_metric": "+auc",
     "optimizer": {
