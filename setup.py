@@ -26,12 +26,11 @@ class PylintCommand(distutils.cmd.Command):
 
 
 # Package meta-data
-NAME = 'attention-is-not-explanation-fact-ai'
-DESCRIPTION = 'UVA FACT-AI Course Project - Attention is Not Explanation'
-URL = 'https://github.com/michaeljneely/fact-ai-2020'
+NAME = 'attention-explanation'
+DESCRIPTION = 'Research into the potential role of attention as token importance.'
+URL = 'https://github.com/sfschouten/attention-explanation'
 EMAIL = 'michael.neely@student.uva.nl'
 AUTHOR = 'Michael J. Neely, Stefan F. Schouten'
-#REQUIRES_PYTHON = '~=3.7.0'
 REQUIRES_PYTHON = '>=3.6'
 VERSION = '0.0.1'
 
@@ -41,6 +40,7 @@ REQUIRED = [
   'tqdm',
   'numpy',
   'allennlp==1.0.0',
+  'allennlp-models==1.0.0',
   'scipy',
   'seaborn',
   'gensim',

@@ -6,8 +6,6 @@ by  Jain and Wallace 2019 (arXiv 1902.10186)
 # pylint: disable=E1101
 # pylint incorrectly identifies some types as tuples
 
-from __future__ import annotations
-
 import torch
 import torch.nn as nn
 
