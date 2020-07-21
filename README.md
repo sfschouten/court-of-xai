@@ -1,8 +1,10 @@
+## TODO
+- abstract
+- new name for ane\_research
+
 # Sparse Attention is Consistent with Feature Importance
 
 ## Abstract
-
-Attention mechanisms are commonly incorporated in models for their potential to increase performance and to provide a distribution over the inputs. The natural temptation is to assume these distributions serve as an 'explanation' of the model's decision, particularly when viewed with visualization methods such as heatmaps. In ['Attention is Not Explanation'](##Citation), Jain and Wallace assert the claim made in the paper's title by empirically studying a bidirectional LSTM model with a simple attention mechanism. They offer two reasons for this claim: that attention weights do not correlate with measures of feature importance; and that attention distributions can be manipulated post hoc to produce different predictions. In this paper, we replicate their results and dispute their first claim by showing that sparse attention distributions strongly correlate with feature importance measures for the top-k features. We conclude by examining attention mechanisms in the context of explanation and recommend using other tools when making claims of interpretability.
 
 ## Authors
 
