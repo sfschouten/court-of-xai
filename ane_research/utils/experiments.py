@@ -9,6 +9,8 @@ from datetime import datetime, timezone
 from ane_research.config import Config
 from ane_research.evaluators import JWAEDEvaluator
 
+from allennlp.commands.train import train_model_from_file
+
 class Experiment():
   ''''Helper class to make running experiments and generating csv files and images as easy as possible'''
   def __init__(self, experiment_file_path: str, recover: bool = False, outputs_path: str = 'outputs'):
@@ -23,12 +25,17 @@ class Experiment():
       recoveree = next(x for x in recent if x.startswith(f"{outputs_path}/{self.experiment_name}"))
       self.out_path = recoveree
     else:
-      timestamp = datetime.now(timezone.utc).isoformat()
+      timestamp = int(datetime.now(timezone.utc).timestamp())
       self.out_path = f'{outputs_path}/{self.experiment_name}/{timestamp}'
     
     self.model_path = self.out_path + '/model.tar.gz'
  
     self.dataset_name, self.attention_type, self.attention_activation_function = self.experiment_name.split('_')
+
+    # import the models from our and official package.
+    from allennlp.common import util as common_util
+    common_util.import_module_and_submodules(Config.package_name)
+    common_util.import_module_and_submodules('allennlp_models')
 
 
   def train(self) -> None:
@@ -36,12 +43,17 @@ class Experiment():
     # So this unfortunately needs to be run as a subprocess command
     # TODO as of AllenNLP 1.0 this seems to be possible so do that instead!
 
-    cmd = ['allennlp', 'train', self.experiment_file_path, '-s', self.out_path, '--include-package', Config.package_name]
+    #cmd = ['allennlp', 'train', self.experiment_file_path, '-s', self.out_path, '--include-package', Config.package_name]
 
-    if self.recover:
-        cmd.append('--recover')
+    #if self.recover:
+    #    cmd.append('--recover')
 
-    subprocess.run(cmd)
+    #subprocess.run(cmd)
+    train_model_from_file(
+      self.experiment_file_path,
+      self.out_path,
+      recover = self.recover
+    )
 
   def evaluate(self) -> None:
     self.evaluator = JWAEDEvaluator(model_path = self.model_path, calculate_on_init=True)
@@ -98,6 +110,6 @@ def get_most_recent_trained_model_paths(outputs_path: str = 'outputs') -> List[s
       output_groups[dir_prefix].append(possible_match)
 
   for group in output_groups.keys():
-    most_recent_model_paths.append(max(output_groups[group], key=lambda s: datetime.fromisoformat(s.split('/')[-1])))
+    most_recent_model_paths.append(max(output_groups[group], key=lambda s: datetime.fromtimestamp(int(s.split('/')[-1]))))
 
   return most_recent_model_paths
