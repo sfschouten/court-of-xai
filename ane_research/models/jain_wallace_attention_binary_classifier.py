@@ -74,27 +74,27 @@ class JWAED(Model):
     return output_dict
 
   def forward_with_feature_erasure(self, tokens, label) -> Dict[str, torch.Tensor]:
+    
     tokens_mask = util.get_text_field_mask(tokens)
     batch_size, max_sequence_length = tokens_mask.shape
+    
+    sequences = tokens['tokens']['tokens']
+    
     predictions = torch.zeros((batch_size, max_sequence_length, 1))
     class_probabilities = torch.zeros((batch_size, max_sequence_length, 2))
 
-    sequences = tokens['tokens']['tokens']
-    
     for i in range(1, max_sequence_length - 1):
-      start = sequences[:, :i]
-      end = sequences[:, i+1:]
-      without_i = torch.cat((start, end), dim=-1)
-      batch_tokens = {'tokens' : {'tokens': without_i}}
-
+      without_i = torch.cat((sequences[:, :i], sequences[:, i+1:]), dim=-1)
       batch_masks = torch.cat([tokens_mask[:, :i], tokens_mask[:, i+1:]], dim=-1)
       
+      # forward
+      batch_tokens = {'tokens' : {'tokens': without_i}}
       embedded_tokens = self.word_embeddings(batch_tokens)
       encoded_tokens = self.encoder(embedded_tokens, batch_masks)
-      
       attention = self.attention(encoded_tokens, batch_masks)
       context = (attention.unsqueeze(-1) * encoded_tokens).sum(1)
       logits = self.decoder(context)
+
       prediction = torch.sigmoid(logits)
       predictions[:, i] = prediction
       class_probabilities[:, i] = torch.cat((1 - prediction, prediction), dim=1)

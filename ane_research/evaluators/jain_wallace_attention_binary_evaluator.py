@@ -74,6 +74,11 @@ class JWAEDEvaluator():
     self.batched_test_instances = list(batch(self.test_instances, self.batch_size))
     self.average_datapoint_length = self._calculate_average_datapoint_length()
 
+    # saliency interpreters
+    self.interpreters = {} 
+    #TODO replace the following by a constructor parameter 
+    self.interpreters['loo'] = LeaveOneOut(self.predictor)
+
     # measures
     self.labels = []
     self.predictions = []
@@ -101,21 +106,27 @@ class JWAEDEvaluator():
 
   def calculate_feature_importance_measures(self):
     self.predictions = []
-    self.feature_erasure_predictions = []
+    self.loo_scores = []
     self.attention_weights = []
     self.gradient_feature_importance = []
     self.labels = []
+   
+    batch_loo_scores = self.interpreters['loo'].saliency_interpret_from_json(self.test_instances)
+
     for instance_batch in tqdm(self.batched_test_instances):
       batch_outputs = self.model.forward_on_instances(instance_batch)
+      
       batch_predictions = [batch_output['prediction'] for batch_output in batch_outputs]
       batch_attention_weights = [batch_output['attention'] for batch_output in batch_outputs]
       batch_labels = [batch_output['label'] for batch_output in batch_outputs]
-      batch_feature_erasure_predictions = self.predictor.predict_batch_instances_with_feature_erasure(instance_batch)['prediction']
+
+      #batch_feature_erasure_predictions = self.predictor.predict_batch_instances_with_feature_erasure(instance_batch)['prediction']
       batch_gradient_feature_importance = self.predictor.batch_instances_normalized_gradient_based_feature_importance(instance_batch)
+      
       for i in range(len(instance_batch)):
         self.attention_weights.append(batch_attention_weights[i])
         self.predictions.append(batch_predictions[i])
-        self.feature_erasure_predictions.append(batch_feature_erasure_predictions[i])
+        #self.feature_erasure_predictions.append(batch_feature_erasure_predictions[i])
         self.gradient_feature_importance.append(batch_gradient_feature_importance[i])
         self.labels.append(batch_labels[i])
 
