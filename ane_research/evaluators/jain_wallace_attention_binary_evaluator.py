@@ -138,9 +138,9 @@ class JWAEDEvaluator():
         score1 = scoreset1[f'instance_{i+1}']
         score2 = scoreset2[f'instance_{i+1}']
         
-        print(score1)
-        print(score2)
-            
+        score1 = next(iter(score1.values()))
+        score2 = next(iter(score2.values()))
+
         self.correlations[(key1, key2)].calculate_kendall_tau_correlation(score1, score2, class_name=class_name)
 
         avg_length = self.average_datapoint_length

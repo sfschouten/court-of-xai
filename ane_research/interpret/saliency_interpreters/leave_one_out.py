@@ -19,16 +19,17 @@ class LeaveOneOut(SaliencyInterpreter):
         
         batch_outputs = self.predictor.predict_batch_instance(batch)
         original_preds = [instance['prediction'] for instance in batch_outputs]
+        nr_preds_per_instance = len(original_preds[0])
+
         loo_preds = self._leave_one_out(batch)
         for i_idx, (_, instance_preds) in enumerate(loo_preds.items()):
+            instance_preds = instance_preds['loo_scores']
             instance_originals = original_preds[i_idx]
-            for _, (key, pred) in enumerate(instance_preds.items()):
-                instance_preds[key] = [ abs(instance_originals[i] - pred[i]) for i in range(len(pred)) ]
 
-        #loo_scores = { key : [ abs(original_preds[i] - loo_preds[i]) for i in range(len(loo_pred)) ] for key, loo_pred in loo_preds.items() } 
-        #instances_with_loo[f'instance_{idx+1}'] = loo_scores
-        
-        #return sanitize(instances_with_loo)
+            for i in range(len(instance_preds)):
+                pairs = zip(instance_originals, instance_preds[i])
+                instance_preds[i] = sum( abs(b - a) for a,b in pairs ) / len(instance_preds[i])
+
         return sanitize(loo_preds)
 
 
@@ -61,7 +62,7 @@ class LeaveOneOut(SaliencyInterpreter):
 
         predictions: Dict[str, Dict[str, Any]] = {}
         for idx in range(len(batch.instances)):
-            predictions[f'instance_{idx+1}'] = dict()
+            predictions[f'instance_{idx+1}'] = {'loo_scores' : []}
 
         for idx in range(max_sequence_length):
             handle = self._register_pre_forward_hook(idx)
@@ -72,7 +73,7 @@ class LeaveOneOut(SaliencyInterpreter):
                 if idx >= length:
                     continue 
 
-                predictions[f'instance_{idx2+1}'][f'loo_pred_{idx+1}'] = output['prediction']
+                predictions[f'instance_{idx2+1}']['loo_scores'].append(output['prediction'])
 
             handle.remove()
 
