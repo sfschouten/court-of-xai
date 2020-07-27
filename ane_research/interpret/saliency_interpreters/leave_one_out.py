@@ -1,33 +1,25 @@
-
-from typing import List, Dict
+from typing import List, Dict, Union, Iterator
 
 import numpy
 
+from allennlp.nn import util
 from allennlp.common.util import JsonDict, sanitize
+from allennlp.common import Tqdm
 from allennlp.data import Instance
-from allenlp.interpret.saliency_interpreters.saliency_interpreter import SaliencyInterpreter
-
+from allennlp.interpret.saliency_interpreters.saliency_interpreter import SaliencyInterpreter
 
 @SaliencyInterpreter.register('leave-one-out')
 class LeaveOneOut(SaliencyInterpreter):
     """
     """
 
-    def saliency_interpret(self, inputs: ???) -> JsonDict:
-
-
-    def saliency_interpret_from_json(self, inputs: JsonDict) -> JsonDict:
-        # Convert inputs to labeled instances
-        labeled_instances = self.predictor.json_to_labeled_instances(inputs)
-    
+    def saliency_interpret_instances(self, labeled_instances: Iterator[Instance]) -> JsonDict:
         instances_with_loo = dict()
-        for idx, instance in enumerate(labeled_instances):
+        for idx, instance in Tqdm.tqdm(enumerate(labeled_instances), desc="interpreting instances"):
             original_pred = self.predictor.predict_instance(instance)['prediction']
             loo_preds = self._leave_one_out(instance)
-            
-            loo_scores = { key : math.abs(original_pred - loo_pred) for key, loo_pred in loo_preds } 
+            loo_scores = { key : [ abs(original_pred[i] - loo_pred[i]) for i in range(len(loo_pred)) ] for key, loo_pred in loo_preds.items() } 
             instances_with_loo[f'instance_{idx+1}'] = loo_scores
-
         return sanitize(instances_with_loo)
 
 
@@ -37,7 +29,7 @@ class LeaveOneOut(SaliencyInterpreter):
             # remove the i-th input token
 
             # TODO figure out what inputs looks like here 
-
+            pass
         # Register the hook
         handle = self.predictor._model.register_forward_pre_hook(pre_forward_hook)
         return handle
@@ -48,11 +40,10 @@ class LeaveOneOut(SaliencyInterpreter):
         Returns the leave-one-out based saliences for the given :class:`~allennlp.data.instance.Instance`.
         """
 
-        tokens_mask = util.get_text_field_mask(instance['tokens']) 
-        _, max_sequence_length = tokens_mask.shape
+        sequence_length = instance['tokens'].sequence_length() 
 
         predictions: Dict[str, Any] = {}
-        for idx in range(max_sequence_length):
+        for idx in range(sequence_length):
             handle = self._register_pre_forward_hook(idx)
 
             outputs = self.predictor.predict_instance(instance)
