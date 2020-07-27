@@ -101,10 +101,8 @@ class JWAEDEvaluator():
 
     # correlations
     self.correlations = {}
-    for key1 in self.interpreters.keys():
-      for key2 in self.interpreters.keys():
-        if key1 != key2:
-          self.correlations[(key1, key2)] = Correlation(key1, key2, self.class_names)
+    for (key1, key2) in itertools.combinations(self.interpreters, 2):
+      self.correlations[(key1, key2)] = Correlation(key1, key2, self.class_names)
 
     if self.precalculate:
       self.calculate_feature_importance_measures()
@@ -177,7 +175,7 @@ class JWAEDEvaluator():
     for i, correlation_measure in enumerate(CorrelationMeasures):
       axes = ax[i]
       linestyles = ['-', '--', ':']
-      correlations = [(correlation.id, correlation.get_total_correlation(correlation_measure)) for correlation in self.correlations]
+      correlations = [(correlation.id, correlation.get_total_correlation(correlation_measure)) for correlation in self.correlations.values()]
       plotting.generate_correlation_density_plot(ax=axes,correlations=correlations)
       plot_title = f'{self.dataset_name}_{self.attention_type}_{self.attention_activation_function}_{correlation_measure.value}'
       plotting.annotate(ax=axes, title=plot_title)
