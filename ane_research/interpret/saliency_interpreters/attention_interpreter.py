@@ -37,12 +37,15 @@ class AttentionInterpreter(SaliencyInterpreter):
     def saliency_interpret_instances(self, labeled_instances: Iterator[Instance]) -> JsonDict:
     
         instances_with_attn = dict()
-        for idx, instance in enumerate(labeled_instances):
+
+        for i_idx, instance in enumerate(labeled_instances):
             original_pred = self.predictor.predict_instance(instance)['prediction']
            
             attn_scores = self.predictor.get_attention_based_salience_for_instance(instance)
-
-            instances_with_attn[f'instance_{idx+1}'] = attn_scores
+            
+            instances_with_attn[f'instance_{i_idx+1}'] = dict()
+            for s_idx, score in enumerate(attn_scores):
+                instances_with_attn[f'instance_{i_idx+1}'][f'attn_score_{s_idx+1}'] = [score]
 
         return sanitize(instances_with_attn)
  

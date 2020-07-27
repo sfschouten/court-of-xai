@@ -28,6 +28,7 @@ from ane_research.interpret.saliency_interpreters.leave_one_out import LeaveOneO
 from ane_research.interpret.saliency_interpreters.attention_interpreter import AttentionInterpreter 
 from     allennlp.interpret.saliency_interpreters.simple_gradient import SimpleGradient
 
+from allennlp.data.dataset_readers.dataset_reader import AllennlpDataset
 
 def batch(iterable, n=1):
   l = len(iterable)
@@ -76,6 +77,12 @@ class JWAEDEvaluator():
     # load test instances and split into batches
     self.test_data_path = self.archive.config.params['test_data_path']
     self.test_instances = self.predictor._dataset_reader.read(self.test_data_path)
+    
+    # TODO remove this, just to speed up debugging.
+    subset = list(itertools.islice(self.test_instances, 100))
+    vocab = self.test_instances.vocab
+    self.test_instances = AllennlpDataset(subset, vocab)
+
     self.batch_size = self.archive.config.params['data_loader']['batch_sampler']['batch_size']
     self.batched_test_instances = list(batch(self.test_instances, self.batch_size))
     self.average_datapoint_length = self._calculate_average_datapoint_length()
@@ -83,9 +90,9 @@ class JWAEDEvaluator():
     # saliency interpreters
     self.interpreters = {} 
     #TODO replace the following by a constructor parameter 
+    self.interpreters['loo'] = LeaveOneOut(self.predictor)
     self.interpreters['attn'] = AttentionInterpreter(self.predictor)
     self.interpreters['grad'] = SimpleGradient(self.predictor)
-    self.interpreters['loo'] = LeaveOneOut(self.predictor)
 
     self.salience_scores = {}
 
@@ -109,7 +116,7 @@ class JWAEDEvaluator():
 
   def calculate_feature_importance_measures(self):
     for key, interpreter in self.interpreters.items():
-      self.salience_scores[key] = interpreter.saliency_interpret_dataset(self.test_instances)
+      self.salience_scores[key] = interpreter.saliency_interpret_dataset(self.test_instances, self.batch_size)
 
     instances = self.test_instances
     batches = [ instances[x:x+self.batch_size] for x in range(0, len(instances), self.batch_size) ]
@@ -127,10 +134,13 @@ class JWAEDEvaluator():
       
       class_name = str(self.labels[i])
 
-      for (key1, scoreset1), (key2, scoreset2) in self.salience_scores.items():
-        score1 = scoreset1[i]
-        score2 = scoreset2[i]
-
+      for (key1, scoreset1), (key2, scoreset2) in itertools.combinations(self.salience_scores.items(), 2):
+        score1 = scoreset1[f'instance_{i+1}']
+        score2 = scoreset2[f'instance_{i+1}']
+        
+        print(score1)
+        print(score2)
+            
         self.correlations[(key1, key2)].calculate_kendall_tau_correlation(score1, score2, class_name=class_name)
 
         avg_length = self.average_datapoint_length
