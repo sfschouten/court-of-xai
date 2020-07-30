@@ -78,6 +78,6 @@ def annotate(ax, xlabel=None, ylabel=None, title=None, xlim=None, ylim=None, leg
     ax.legend(loc=legend_location)
 
 def generate_correlation_density_plot(ax, correlations: List[Tuple[str, np.ndarray]]):
-  linestyles = ['-', '--', ':']
+  linestyles = ['-', '--', ':', '-.']
   for (name, measure) in correlations:
     sns.kdeplot(measure, linewidth=2, linestyle=linestyles.pop(), color='k', ax=ax, label=name)

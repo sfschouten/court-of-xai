@@ -21,8 +21,11 @@ class JWAEDPredictor(Predictor, AttentionModelPredictor):
 
   @overrides
   def _json_to_instance(self, json_dict: JsonDict) -> Instance:
-    print(json_dict)
-    tokens = json_dict['tokens']
+    sentence = json_dict['sentence']
+
+    # Assuming it's already tokenized.
+    tokens = sentence.split()
+
     instance = self._dataset_reader.text_to_instance(tokens=tokens)
     return instance
 

@@ -26,7 +26,9 @@ import ane_research.utils.plotting as plotting
 
 from ane_research.interpret.saliency_interpreters.leave_one_out import LeaveOneOut
 from ane_research.interpret.saliency_interpreters.attention_interpreter import AttentionInterpreter 
-from     allennlp.interpret.saliency_interpreters.simple_gradient import SimpleGradient
+from ane_research.interpret.saliency_interpreters.lime import LimeInterpreter 
+from     allennlp.interpret.saliency_interpreters import SimpleGradient
+from     allennlp.interpret.saliency_interpreters import IntegratedGradient
 
 from allennlp.data.dataset_readers.dataset_reader import AllennlpDataset
 
@@ -89,10 +91,12 @@ class JWAEDEvaluator():
 
     # saliency interpreters
     self.interpreters = {} 
-    #TODO replace the following by a constructor parameter 
-    self.interpreters['loo'] = LeaveOneOut(self.predictor)
+    #TODO replace the following by a constructor parameter
+    self.interpreters['lime'] = LimeInterpreter(self.predictor)
+    #self.interpreters['loo']  = LeaveOneOut(self.predictor)
     self.interpreters['attn'] = AttentionInterpreter(self.predictor)
-    self.interpreters['grad'] = SimpleGradient(self.predictor)
+    #self.interpreters['grad'] = SimpleGradient(self.predictor)
+    self.interpreters['intgrad'] = IntegratedGradient(self.predictor)
 
     self.salience_scores = {}
 
@@ -135,7 +139,7 @@ class JWAEDEvaluator():
       for (key1, scoreset1), (key2, scoreset2) in itertools.combinations(self.salience_scores.items(), 2):
         score1 = scoreset1[f'instance_{i+1}']
         score2 = scoreset2[f'instance_{i+1}']
-        
+
         score1 = next(iter(score1.values()))
         score2 = next(iter(score2.values()))
 
