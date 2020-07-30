@@ -81,9 +81,9 @@ class JWAEDEvaluator():
     self.test_instances = self.predictor._dataset_reader.read(self.test_data_path)
     
     # TODO remove this, just to speed up debugging.
-    subset = list(itertools.islice(self.test_instances, 100))
-    vocab = self.test_instances.vocab
-    self.test_instances = AllennlpDataset(subset, vocab)
+    #subset = list(itertools.islice(self.test_instances, 100))
+    #vocab = self.test_instances.vocab
+    #self.test_instances = AllennlpDataset(subset, vocab)
 
     self.batch_size = self.archive.config.params['data_loader']['batch_sampler']['batch_size']
     self.batched_test_instances = list(batch(self.test_instances, self.batch_size))

@@ -50,7 +50,8 @@ REQUIRED = [
   'scikit_learn',
   'entmax',
   'requests',
-  'python-json-logger'
+  'python-json-logger',
+  'lime'
 ]
 
 SETUP = [
