@@ -29,7 +29,7 @@ class LimeInterpreter(SaliencyInterpreter):
 
     def saliency_interpret_instances(self, labeled_instances: Iterable[Instance]) -> JsonDict:
         instances_with_lime = dict()
-       
+
         for idx, instance in enumerate(labeled_instances):
             explanation = self._lime(instance)
             instances_with_lime[f'instance_{idx+1}'] = { "lime_scores" : explanation }
