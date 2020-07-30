@@ -142,6 +142,11 @@ class JWAEDEvaluator():
 
         score1 = next(iter(score1.values()))
         score2 = next(iter(score2.values()))
+    
+        if len(score1) != len(score2):
+            self.logger.error(f"List of scores for {key1} and {key2} were not equal length!")
+            self.logger.debug(f"Relevant instance: {self.test_instances[i]}")
+            continue
 
         self.correlations[(key1, key2)].calculate_kendall_tau_correlation(score1, score2, class_name=class_name)
 

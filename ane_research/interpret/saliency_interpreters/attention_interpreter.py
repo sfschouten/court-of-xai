@@ -1,4 +1,4 @@
-from typing import List, Dict, Iterator
+from typing import List, Dict, Iterable 
 
 from allennlp.common.util import JsonDict, sanitize
 from allennlp.data import Instance
@@ -34,7 +34,7 @@ class AttentionInterpreter(SaliencyInterpreter):
         super().__init__(predictor)
 
 
-    def saliency_interpret_instances(self, labeled_instances: Iterator[Instance]) -> JsonDict:
+    def saliency_interpret_instances(self, labeled_instances: Iterable[Instance]) -> JsonDict:
     
         instances_with_attn = dict()
 

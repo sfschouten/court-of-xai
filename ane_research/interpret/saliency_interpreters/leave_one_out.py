@@ -1,4 +1,4 @@
-from typing import List, Dict, Union, Iterator
+from typing import List, Dict, Union, Iterable 
 
 import numpy
 import itertools
@@ -13,7 +13,7 @@ class LeaveOneOut(SaliencyInterpreter):
     """
     """
 
-    def saliency_interpret_instances(self, labeled_instances: Iterator[Instance]) -> JsonDict:
+    def saliency_interpret_instances(self, labeled_instances: Iterable[Instance]) -> JsonDict:
         batch = list(labeled_instances)
         instances_with_loo = dict()
         

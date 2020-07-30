@@ -1,4 +1,4 @@
-from typing import List, Dict, Union, Iterator
+from typing import List, Dict, Union, Iterable 
 
 from lime import lime_text
 from lime.lime_text import LimeTextExplainer
@@ -27,9 +27,9 @@ class LimeInterpreter(SaliencyInterpreter):
         self.explainer = LimeTextExplainer(bow=False, split_expression=r'\s+')
         self.num_samples = num_samples
 
-    def saliency_interpret_instances(self, labeled_instances: Iterator[Instance]) -> JsonDict:
+    def saliency_interpret_instances(self, labeled_instances: Iterable[Instance]) -> JsonDict:
         instances_with_lime = dict()
-        
+       
         for idx, instance in enumerate(labeled_instances):
             explanation = self._lime(instance)
             instances_with_lime[f'instance_{idx+1}'] = { "lime_scores" : explanation }
