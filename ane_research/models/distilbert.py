@@ -4,11 +4,13 @@
 # '''
 from copy import deepcopy
 import math
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 
+from allennlp.data.batch import Batch
 from allennlp.common import FromParams
-from allennlp.data import TextFieldTensors, Vocabulary
+from allennlp.data import TextFieldTensors, Vocabulary, Instance
 from allennlp.models.model import Model
+from allennlp.nn import util
 from allennlp.training.metrics import CategoricalAccuracy
 import numpy as np
 from overrides import overrides
@@ -19,6 +21,7 @@ from transformers.modeling_auto import AutoModel
 from transformers.modeling_utils import PreTrainedModel
 
 from ane_research.models.modules.architectures.transformer import Transformer, Embeddings
+
 
 class DistilBertEncoder(torch.nn.Module, FromParams):
     def __init__(
@@ -165,7 +168,8 @@ class DistilBertForSequenceClassification(Model):
     def forward(
         self,
         tokens: TextFieldTensors,
-        label: torch.LongTensor = None
+        label: torch.LongTensor = None,
+        output_attentions: bool = False
     ):
         input_ids = tokens["tokens"]["token_ids"] # (bs, seq_len)
         attention_mask = tokens["tokens"]["mask"] # (bs, seq_len)
@@ -174,9 +178,13 @@ class DistilBertForSequenceClassification(Model):
         head_mask = head_mask.expand(self.encoder.n_layers, -1, self.encoder.n_heads, -1, attention_mask.shape[1])
 
         embedding_output = self.embeddings(input_ids) # (bs, seq_len, dim)
-        encoded_tokens = self.encoder(inputs_embeds=embedding_output, attention_mask=attention_mask, head_mask=head_mask)
+        encoder_output = self.encoder(
+            inputs_embeds=embedding_output,
+            attention_mask=attention_mask,
+            head_mask=head_mask,
+            output_attentions=output_attentions)
 
-        hidden_state = encoded_tokens[0]  # (bs, seq_len, dim)
+        hidden_state = encoder_output[0]  # (bs, seq_len, dim)
         pooled_output = hidden_state[:, 0]  # (bs, dim)
         pooled_output = self.pre_classifier(pooled_output)  # (bs, dim)
         pooled_output = nn.ReLU()(pooled_output)  # (bs, dim)
@@ -185,6 +193,10 @@ class DistilBertForSequenceClassification(Model):
         
         outputs = {}
         outputs["logits"] = logits
+
+        if output_attentions:
+            outputs['attention'] = encoder_output[1][0]
+
         class_probabilities = torch.nn.Softmax(dim=-1)(logits)
         outputs['class_probabilities'] = class_probabilities
 
@@ -194,3 +206,32 @@ class DistilBertForSequenceClassification(Model):
             self.metrics['accuracy'](class_probabilities, label)
 
         return outputs
+
+    @overrides
+    def forward_on_instances(self, instances: List[Instance]) -> List[Dict[str, np.ndarray]]:
+        # An exact copy of the original method, but includes the flag to output attention scores
+        batch_size = len(instances)
+        with torch.no_grad():
+            cuda_device = self._get_prediction_device()
+            dataset = Batch(instances)
+            dataset.index_instances(self.vocab)
+            model_input = util.move_to_device(dataset.as_tensor_dict(), cuda_device)
+            outputs = self.make_output_human_readable(self(**model_input, output_attentions=True))
+            instance_separated_output: List[Dict[str, np.ndarray]] = [
+                {} for _ in dataset.instances
+            ]
+            for name, output in list(outputs.items()):
+                if isinstance(output, torch.Tensor):
+                    if output.dim() == 0:
+                        output = output.unsqueeze(0)
+
+                    if output.size(0) != batch_size:
+                        self._maybe_warn_for_unseparable_batches(name)
+                        continue
+                    output = output.detach().cpu().numpy()
+                elif len(output) != batch_size:
+                    self._maybe_warn_for_unseparable_batches(name)
+                    continue
+                for instance_output, batch_element in zip(instance_separated_output, output):
+                    instance_output[name] = batch_element
+            return instance_separated_output
