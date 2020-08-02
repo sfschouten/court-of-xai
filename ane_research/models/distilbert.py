@@ -1,0 +1,196 @@
+# '''
+# DistilBERT code taken from the HuggingFace Transformer 2.11.0 library with minor modifications
+# Allen NLP compatibility code taken from https://github.com/allenai/allennlp/pull/4495/files
+# '''
+from copy import deepcopy
+import math
+from typing import Dict, Optional
+
+from allennlp.common import FromParams
+from allennlp.data import TextFieldTensors, Vocabulary
+from allennlp.models.model import Model
+from allennlp.training.metrics import CategoricalAccuracy
+import numpy as np
+from overrides import overrides
+import torch
+from torch import Tensor
+import torch.nn as nn
+from transformers.modeling_auto import AutoModel
+from transformers.modeling_utils import PreTrainedModel
+
+from ane_research.models.modules.architectures.transformer import Transformer, Embeddings
+
+class DistilBertEncoder(torch.nn.Module, FromParams):
+    def __init__(
+        self,
+        n_layers: int = 6,
+        n_heads: int = 12,
+        dim: int = 768,
+        hidden_dim: int = 4*768,
+        ffn_activation: str = "gelu",
+        attention_activation: str = "softmax",
+        attention_dropout: float = 0.2
+    ):
+        super().__init__()
+        self.n_layers=n_layers
+        self.n_heads = n_heads
+        self.dim = dim
+        self.hidden_dim = hidden_dim
+        self.ffn_activation = ffn_activation
+        self.attention_activation = attention_activation
+        self.attention_dropout =  attention_dropout
+
+        self.transformer = Transformer(
+            n_layers=self.n_layers,
+            n_heads=self.n_heads,
+            dim=self.dim,
+            hidden_dim=self.hidden_dim,
+            ffn_activation=self.ffn_activation,
+            attention_activation=self.attention_activation,
+            attention_dropout=self.attention_dropout)
+
+    @classmethod
+    def from_huggingface_model(cls,
+        model: PreTrainedModel,
+        ffn_activation: str,
+        attention_activation: str,
+        attention_dropout: float
+    ):
+        config = model.config
+        encoder = cls(
+            n_layers=config.n_layers,
+            n_heads=config.n_heads,
+            dim=config.dim,
+            hidden_dim=config.hidden_dim,
+            ffn_activation=ffn_activation,
+            attention_activation=attention_activation,
+            attention_dropout=attention_dropout
+        )
+        # After creating the encoder, we copy weights over from the transformer.  This currently
+        # requires that the internal structure of the text side of this encoder *exactly matches*
+        # the internal structure of whatever transformer you're using. 
+        encoder_parameters = dict(encoder.named_parameters())
+        for name, parameter in model.named_parameters():
+            if name.startswith("encoder."):
+                name = name[8:]
+                name = name.replace("LayerNorm", "layer_norm")
+                if name not in encoder_parameters:
+                    raise ValueError(
+                        f"Couldn't find a matching parameter for {name}. Is this transformer "
+                        "compatible with the joint encoder you're using?"
+                    )
+                encoder_parameters[name].data.copy_(parameter.data)
+
+        return encoder
+
+    @overrides
+    def forward(
+        self,
+        attention_mask: torch.Tensor = None,
+        head_mask: torch.Tensor = None,
+        inputs_embeds: torch.Tensor = None,
+        output_attentions: bool = None,
+        output_hidden_states: bool = None
+    ):
+        return self.transformer(
+            x=inputs_embeds,
+            attn_mask=attention_mask,
+            head_mask=head_mask,
+            output_attentions=output_attentions,
+            output_hidden_states=output_hidden_states
+        )
+
+
+@Model.register("distilbert_sequence_classification")
+@Model.register("distilbert_sequence_classification_from_huggingface", constructor="from_huggingface_model_name")
+class DistilBertForSequenceClassification(Model):
+    def __init__(
+        self,
+        vocab: Vocabulary,
+        embeddings: Embeddings,
+        encoder: DistilBertEncoder,
+        num_labels: int,
+        seq_classif_dropout: float
+    ):
+        super().__init__(vocab)
+
+        self.embeddings = embeddings
+        self.encoder = encoder
+        self.num_labels = num_labels
+        self.seq_classif_dropout = seq_classif_dropout
+
+        self.pre_classifier = nn.Linear(self.encoder.dim, self.encoder.dim)
+        self.classifier = nn.Linear(self.encoder.dim, self.num_labels)
+        self.dropout = nn.Dropout(self.seq_classif_dropout)
+
+        self.metrics = {
+            'accuracy': CategoricalAccuracy()
+        }
+        self.loss = torch.nn.CrossEntropyLoss()
+
+    @classmethod
+    def from_huggingface_model_name(
+        cls,
+        vocab: Vocabulary,
+        model_name: str,
+        ffn_activation: str,
+        attention_activation: str,
+        attention_dropout: float,
+        num_labels: int,
+        seq_classif_dropout: float
+    ):
+        transformer = AutoModel.from_pretrained(model_name)
+        embeddings = deepcopy(transformer.embeddings)
+        encoder = DistilBertEncoder.from_huggingface_model(
+            model=transformer,
+            ffn_activation=ffn_activation,
+            attention_dropout=attention_dropout,
+            attention_activation=attention_activation
+        )
+        return cls(
+            vocab=vocab,
+            embeddings=embeddings,
+            encoder=encoder,
+            num_labels=num_labels,
+            seq_classif_dropout=seq_classif_dropout
+        )
+
+    @overrides
+    def get_metrics(self, reset: bool = False) -> Dict[str, float]:
+        return {
+            'accuracy': self.metrics['accuracy'].get_metric(reset=reset)
+        }
+
+    @overrides
+    def forward(
+        self,
+        tokens: TextFieldTensors,
+        label: torch.LongTensor = None
+    ):
+        input_ids = tokens["tokens"]["token_ids"] # (bs, seq_len)
+        attention_mask = tokens["tokens"]["mask"] # (bs, seq_len)
+        # (bs, seq_len) -> (num_hidden_layers, batch, num_heads, seq_length, seq_length)
+        head_mask = attention_mask.unsqueeze(0).unsqueeze(2).unsqueeze(-1)
+        head_mask = head_mask.expand(self.encoder.n_layers, -1, self.encoder.n_heads, -1, attention_mask.shape[1])
+
+        embedding_output = self.embeddings(input_ids) # (bs, seq_len, dim)
+        encoded_tokens = self.encoder(inputs_embeds=embedding_output, attention_mask=attention_mask, head_mask=head_mask)
+
+        hidden_state = encoded_tokens[0]  # (bs, seq_len, dim)
+        pooled_output = hidden_state[:, 0]  # (bs, dim)
+        pooled_output = self.pre_classifier(pooled_output)  # (bs, dim)
+        pooled_output = nn.ReLU()(pooled_output)  # (bs, dim)
+        pooled_output = self.dropout(pooled_output)  # (bs, dim)
+        logits = self.classifier(pooled_output)  # (bs, dim)
+        
+        outputs = {}
+        outputs["logits"] = logits
+        class_probabilities = torch.nn.Softmax(dim=-1)(logits)
+        outputs['class_probabilities'] = class_probabilities
+
+        if label is not None:
+            loss = self.loss(logits.view(-1, self.num_labels), label.view(-1))
+            outputs['loss'] = loss
+            self.metrics['accuracy'](class_probabilities, label)
+
+        return outputs
