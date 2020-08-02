@@ -1,4 +1,4 @@
-from typing import Dict, List
+from typing import Dict, List, Optional
 from overrides import overrides
 
 from allennlp.common.file_utils import cached_path
@@ -52,16 +52,16 @@ class ImdbCsvDatasetReader(DatasetReader):
           yield instance
 
   @overrides
-  def text_to_instance(self, tokens: List[str], sentiment: str) -> Instance:
+  def text_to_instance(self, tokens: List[str], sentiment: Optional[str] = None) -> Instance:
     if self.pretrained_tokenizer:
       tokenized_sentence = self._tokenizer.tokenize(tokens)
       text = TextField(tokenized_sentence, self._token_indexers)
     else:
       text = TextField([Token(x) for x in tokens], token_indexers=self._token_indexers)
 
-    label_field = LabelField(int(sentiment), skip_indexing=True)
-    fields = {
-      'tokens': text,
-      'label': label_field
-    }
+    fields = {'tokens': text}
+
+    if sentiment:
+      fields['label'] = LabelField(int(sentiment), skip_indexing=True)
+
     return Instance(fields)
