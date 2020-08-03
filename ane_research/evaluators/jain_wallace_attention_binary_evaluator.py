@@ -27,6 +27,7 @@ import ane_research.utils.plotting as plotting
 from ane_research.interpret.saliency_interpreters.leave_one_out import LeaveOneOut
 from ane_research.interpret.saliency_interpreters.attention_interpreter import AttentionInterpreter 
 from ane_research.interpret.saliency_interpreters.lime import LimeInterpreter 
+from ane_research.interpret.saliency_interpreters.captum_interpreter import CaptumInterpreter, CaptumDeepLiftShap
 from     allennlp.interpret.saliency_interpreters import SimpleGradient
 from     allennlp.interpret.saliency_interpreters import IntegratedGradient
 
@@ -92,7 +93,8 @@ class JWAEDEvaluator():
     # saliency interpreters
     self.interpreters = {} 
     #TODO replace the following by a constructor parameter
-    self.interpreters['lime'] = LimeInterpreter(self.predictor)
+    self.interpreters['dl_shap'] = CaptumInterpreter(self.predictor, CaptumDeepLiftShap(self.predictor))
+    #self.interpreters['lime'] = LimeInterpreter(self.predictor)
     #self.interpreters['loo']  = LeaveOneOut(self.predictor)
     self.interpreters['attn'] = AttentionInterpreter(self.predictor)
     #self.interpreters['grad'] = SimpleGradient(self.predictor)

@@ -21,23 +21,34 @@ from allennlp.interpret.saliency_interpreters import SaliencyInterpreter
 # Registrable for captum registrations.
 class CaptumAttribution(Registrable):
 
-    def attribute_instances(self, labeled_instances: Iterable[Instance]) -> JsonDict:
+    def saliency_interpret_instances(self, labeled_instances: Iterable[Instance]) -> JsonDict:
         raise NotImplementedError()
 
 
 # Captum expects the input to the model you are interpreting to be one or more
 # Tensor objects, but AllenNLP Model classes often take Dict[...] objects as
-# their input. To fix this we require Models that are to be used with Captum
-# to implement a method that takes individual tensors and returns them packaged
-# in whatever structures necessary for the Model.forward.
-# If the Model does not implement this class, it will be used as if it takes
-# one or more Tensors as input.
-class CaptumCompatible(torch.nn.Module):
+# their input. To fix this we require the Models that are to be used with Captum
+# to implement a set of methods that make it possible to use Captum. 
+class CaptumCompatible():
     
-    @override
-    def convert_inputs(*inputs):
+    def captum_sub_model(self):
+        """
+        Returns a PyTorch nn.Module instance with a forward that performs
+        the same steps as the Model would normally, but starting from word embeddings.
+        As such it accepts FloatTensors as input, which is required for Captum.
+        """
         raise NotImplementedError()
-        
+
+    def instances_to_captum_inputs(self, *inputs):
+        """
+        Converts a set of Instances to a Tensor suitable to pass to the submodule
+        obtained through captum_sub_model.
+
+        Returns
+          Tuple with (inputs, additional_forward_args)
+
+        """
+        raise NotImplementedError()
 
 
 @SaliencyInterpreter.register('captum')
@@ -60,72 +71,43 @@ from captum.attr import DeepLiftShap
 class CaptumDeepLiftShap(CaptumAttribution, DeepLiftShap):
 
     def __init__(self, predictor: Predictor):
-        super().__init__(predictor._model)
 
         self.predictor = predictor
+
+        if not isinstance(self.predictor._model, CaptumCompatible):
+            raise TypeError("Predictor._model must be CaptumCompatible.")
+
+        self.submodel = self.predictor._model.captum_sub_model()
+        super().__init__(self.submodel)
+
 
     def saliency_interpret_instances(self, labeled_instances: Iterable[Instance]) -> JsonDict: 
         instances_with_captum_attr = dict()
         
         model = self.predictor._model
-        batch_size = len(labeled_instances)
-        with torch.no_grad():
-            cuda_device = model._get_prediction_device()
-            batch = Batch(labeled_instances)
-            batch.index_instances(model.vocab)
-            model_input = util.move_to_device(batch.as_tensor_dict(), cuda_device)
+        inputs, additional = model.instances_to_captum_inputs(labeled_instances)
 
-            print(model_input)
+        baselines = tuple(torch.zeros_like(tensor) for tensor in inputs)
+       
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", category=UserWarning)
 
-            attributions = self.attribute(inputs=model_input)
-            
-        print(attributions.shape)
-        token_attr = attributions.sum(dim=0)
-        
-        for i in range(batch_size):
-            explanation = token_attr[i].to_list()
+            attributions, = self.attribute(
+                    inputs=inputs, 
+                    baselines=baselines, 
+                    additional_forward_args=additional)
+
+        batch_size, _, _ = attributions.shape
+
+        # sum out the embedding dimensions to get token importance
+        token_attr = attributions.sum(dim=-1).abs() 
+
+        for idx, instance in zip(range(batch_size), labeled_instances):
+            sequence_length = len(instance['tokens'])
+            explanation = token_attr[idx].tolist()[:sequence_length]
             instances_with_captum_attr[f'instance_{idx+1}'] = { "captum_attr_scores" : explanation }
 
         return sanitize(instances_with_captum_attr)
-
-
-# ---DeepLiftShap---
-from captum.attr import DeepLiftShap
-@CaptumAttribution.register('captum-deepliftshap')
-class CaptumDeepLiftShap(CaptumAttribution, DeepLiftShap):
-
-    def __init__(self, predictor: Predictor):
-        super().__init__(predictor._model)
-
-        self.predictor = predictor
-
-    def saliency_interpret_instances(self, labeled_instances: Iterable[Instance]) -> JsonDict: 
-        instances_with_captum_attr = dict()
-        
-        model = self.predictor._model
-        batch_size = len(labeled_instances)
-        with torch.no_grad():
-            cuda_device = model._get_prediction_device()
-            batch = Batch(labeled_instances)
-            batch.index_instances(model.vocab)
-            model_input = util.move_to_device(batch.as_tensor_dict(), cuda_device)
-
-            print(model_input)
-            # Right now it looks like the DeepLiftShap will not work, since it 
-            # expects the nn.Module's forward to take Tensors, but our Model takes
-            # tokens: Dict[str, Tensor] ...
-
-            attributions = self.attribute(inputs=model_input)
-            
-        print(attributions.shape)
-        token_attr = attributions.sum(dim=0)
-        
-        for i in range(batch_size):
-            explanation = token_attr[i].to_list()
-            instances_with_captum_attr[f'instance_{idx+1}'] = { "captum_attr_scores" : explanation }
-
-        return sanitize(instances_with_captum_attr)
-
 
 
 
