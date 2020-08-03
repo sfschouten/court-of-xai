@@ -25,6 +25,11 @@ class ImdbCsvDatasetReader(DatasetReader):
     self.max_review_length = max_review_length
     self.pretrained_tokenizer = pretrained_tokenizer
 
+    self.label_map = {
+      '1': 'positive',
+      '0': 'negative'
+    }
+
     if self.pretrained_tokenizer:
       self._tokenizer = PretrainedTransformerTokenizer(self.pretrained_tokenizer)
       self._token_indexers: Dict[str, TokenIndexer] = {
@@ -62,6 +67,6 @@ class ImdbCsvDatasetReader(DatasetReader):
     fields = {'tokens': text}
 
     if sentiment:
-      fields['label'] = LabelField(int(sentiment), skip_indexing=True)
+      fields['label'] = LabelField(self.label_map[sentiment])
 
     return Instance(fields)
