@@ -1,5 +1,5 @@
 {
-  "python.pythonPath": "v-ane-research/bin/python",
+  "python.pythonPath": "v-ane-research/bin/python3",
   "python.linting.pylintEnabled": true,
   "python.linting.pylintPath": "v-ane-research/bin/pylint",
   "python.linting.lintOnSave": true,

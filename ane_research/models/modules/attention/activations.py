@@ -4,7 +4,7 @@ import torch
 
 from allennlp.nn.util import replace_masked_values
 from entmax import sparsemax
-
+from functools import partial
 
 def masked_sparsemax(weight_vector: torch.Tensor, masks: torch.Tensor) -> torch.Tensor:
   '''Masked Sparsemax Activation. See Martins & Astudillo 2016 (arXiv 1602.02068)
@@ -37,4 +37,9 @@ def masked_softmax(weight_vector: torch.Tensor, masks: torch.Tensor) -> torch.Te
 activation_function_map = {
   'softmax': masked_softmax,
   'sparsemax': masked_sparsemax
+}
+
+attention_bind_map = {
+  'sparsemax':  partial(sparsemax, dim=-1),
+  'softmax': torch.nn.Softmax(dim=-1)
 }
