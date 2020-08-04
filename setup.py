@@ -39,8 +39,8 @@ REQUIRED = [
   'nltk',
   'tqdm',
   'numpy',
-  'allennlp==1.0.0',
-  'allennlp-models==1.0.0',
+  'allennlp>=1.0.0',
+  'allennlp-models>=1.0.0',
   'scipy',
   'seaborn',
   'gensim',
@@ -50,7 +50,8 @@ REQUIRED = [
   'scikit_learn',
   'entmax',
   'requests',
-  'python-json-logger'
+  'python-json-logger',
+  'lime'
 ]
 
 SETUP = [

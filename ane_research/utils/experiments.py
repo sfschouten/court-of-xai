@@ -39,16 +39,6 @@ class Experiment():
 
 
   def train(self) -> None:
-    # AllenNLP release 0.9.0 does not support include_package_argument in train_model function.
-    # So this unfortunately needs to be run as a subprocess command
-    # TODO as of AllenNLP 1.0 this seems to be possible so do that instead!
-
-    #cmd = ['allennlp', 'train', self.experiment_file_path, '-s', self.out_path, '--include-package', Config.package_name]
-
-    #if self.recover:
-    #    cmd.append('--recover')
-
-    #subprocess.run(cmd)
     train_model_from_file(
       self.experiment_file_path,
       self.out_path,

@@ -2,6 +2,7 @@ from copy import deepcopy
 import logging
 import math
 import os
+import itertools
 from typing import List, Tuple
 
 from allennlp.models import Model
@@ -22,6 +23,14 @@ from ane_research.utils.correlation import Correlation, CorrelationMeasures
 from ane_research.utils.kendall_top_k import kendall_top_k
 import ane_research.utils.plotting as plotting
 
+
+from ane_research.interpret.saliency_interpreters.leave_one_out import LeaveOneOut
+from ane_research.interpret.saliency_interpreters.attention_interpreter import AttentionInterpreter 
+from ane_research.interpret.saliency_interpreters.lime import LimeInterpreter 
+from     allennlp.interpret.saliency_interpreters import SimpleGradient
+from     allennlp.interpret.saliency_interpreters import IntegratedGradient
+
+from allennlp.data.dataset_readers.dataset_reader import AllennlpDataset
 
 def batch(iterable, n=1):
   l = len(iterable)
@@ -70,26 +79,34 @@ class JWAEDEvaluator():
     # load test instances and split into batches
     self.test_data_path = self.archive.config.params['test_data_path']
     self.test_instances = self.predictor._dataset_reader.read(self.test_data_path)
+    
+    # TODO remove this, just to speed up debugging.
+    #subset = list(itertools.islice(self.test_instances, 100))
+    #vocab = self.test_instances.vocab
+    #self.test_instances = AllennlpDataset(subset, vocab)
+
     self.batch_size = self.archive.config.params['data_loader']['batch_sampler']['batch_size']
     self.batched_test_instances = list(batch(self.test_instances, self.batch_size))
     self.average_datapoint_length = self._calculate_average_datapoint_length()
 
+    # saliency interpreters
+    self.interpreters = {} 
+    #TODO replace the following by a constructor parameter
+    self.interpreters['lime'] = LimeInterpreter(self.predictor)
+    #self.interpreters['loo']  = LeaveOneOut(self.predictor)
+    self.interpreters['attn'] = AttentionInterpreter(self.predictor)
+    #self.interpreters['grad'] = SimpleGradient(self.predictor)
+    self.interpreters['intgrad'] = IntegratedGradient(self.predictor)
+
+    self.salience_scores = {}
+
     # measures
     self.labels = []
-    self.predictions = []
-    self.feature_erasure_predictions = []
-    self.attention_weights = []
-    self.gradient_feature_importance = []
 
     # correlations
-    self.attention_gradient_correlation = Correlation('attention', 'gradient', self.class_names)
-    self.feature_erasure_gradient_correlation = Correlation('feature_erasure', 'gradient', self.class_names)
-    self.attention_feature_erasure_correlation = Correlation('attention', 'feature_erasure', self.class_names)
-    self.correlations = [
-      self.attention_gradient_correlation,
-      self.feature_erasure_gradient_correlation,
-      self.attention_feature_erasure_correlation
-    ]
+    self.correlations = {}
+    for (key1, key2) in itertools.combinations(self.interpreters, 2):
+      self.correlations[(key1, key2)] = Correlation(key1, key2, self.class_names)
 
     if self.precalculate:
       self.calculate_feature_importance_measures()
@@ -100,57 +117,57 @@ class JWAEDEvaluator():
     return math.floor(np.mean(num_tokens_per_datapoint))
 
   def calculate_feature_importance_measures(self):
-    self.predictions = []
-    self.feature_erasure_predictions = []
-    self.attention_weights = []
-    self.gradient_feature_importance = []
+    for key, interpreter in self.interpreters.items():
+      self.salience_scores[key] = interpreter.saliency_interpret_dataset(self.test_instances, self.batch_size)
+
+    instances = self.test_instances
+    batches = [ instances[x:x+self.batch_size] for x in range(0, len(instances), self.batch_size) ]
     self.labels = []
-    for instance_batch in tqdm(self.batched_test_instances):
-      batch_outputs = self.model.forward_on_instances(instance_batch)
-      batch_predictions = [batch_output['prediction'] for batch_output in batch_outputs]
-      batch_attention_weights = [batch_output['attention'] for batch_output in batch_outputs]
-      batch_labels = [batch_output['label'] for batch_output in batch_outputs]
-      batch_feature_erasure_predictions = self.predictor.predict_batch_instances_with_feature_erasure(instance_batch)['prediction']
-      batch_gradient_feature_importance = self.predictor.batch_instances_normalized_gradient_based_feature_importance(instance_batch)
-      for i in range(len(instance_batch)):
-        self.attention_weights.append(batch_attention_weights[i])
-        self.predictions.append(batch_predictions[i])
-        self.feature_erasure_predictions.append(batch_feature_erasure_predictions[i])
-        self.gradient_feature_importance.append(batch_gradient_feature_importance[i])
-        self.labels.append(batch_labels[i])
+    for batch in batches:
+        batch_outputs = self.model.forward_on_instances(batch)
+        batch_labels = [batch_output['label'] for batch_output in batch_outputs]
+        self.labels.extend(batch_labels)
+      
 
   def calculate_correlations(self):
     # Calculate kendalltau, kendall_tau_top_k_non_zero, and kendall_tau_top_k_average_length for each datapoint
     for i in tqdm(range(len(self.test_instances))):
       L = len(self.test_instances[i].fields['tokens']) # sequence length
-      prediction_difference = np.abs(self.feature_erasure_predictions[i] - self.predictions[i]).mean(-1)[1:L-1]
-      attention = list(self.attention_weights[i][1:L-1])
-      gradients = list(self.gradient_feature_importance[i][1:L-1])
+      
       class_name = str(self.labels[i])
 
-      # f -> feature erasure, a -> attention, g -> gradients
-      self.attention_feature_erasure_correlation.calculate_kendall_tau_correlation(attention, prediction_difference, class_name=class_name)
-      self.attention_feature_erasure_correlation.calculate_kendall_top_k_average_length_correlation(attention, prediction_difference, average_length=self.average_datapoint_length, p=0.5, class_name=class_name)
-      _, k_af = self.attention_feature_erasure_correlation.calculate_kendall_top_k_non_zero_correlation(attention, prediction_difference, kIsNonZero=True, p=0.5, class_name=class_name)
-      
+      for (key1, scoreset1), (key2, scoreset2) in itertools.combinations(self.salience_scores.items(), 2):
+        score1 = scoreset1[f'instance_{i+1}']
+        score2 = scoreset2[f'instance_{i+1}']
 
-      self.attention_gradient_correlation.calculate_kendall_tau_correlation(attention, gradients, class_name)
-      self.attention_gradient_correlation.calculate_kendall_top_k_average_length_correlation(attention, gradients, average_length=self.average_datapoint_length, p=0.5, class_name=class_name)
-      _, k_ag = self.attention_gradient_correlation.calculate_kendall_top_k_non_zero_correlation(attention, gradients, kIsNonZero=True, p=0.5, class_name=class_name)
+        score1 = next(iter(score1.values()))
+        score2 = next(iter(score2.values()))
+    
+        if len(score1) != len(score2):
+            self.logger.error(f"List of scores for {key1} and {key2} were not equal length!")
+            self.logger.debug(f"Relevant instance: {self.test_instances[i]}")
+            continue
 
-      self.feature_erasure_gradient_correlation.calculate_kendall_tau_correlation(prediction_difference, gradients, class_name=class_name)
-      self.feature_erasure_gradient_correlation.calculate_kendall_top_k_average_length_correlation(prediction_difference, gradients, average_length=self.average_datapoint_length, p=0.5, class_name=class_name)
+        self.correlations[(key1, key2)].calculate_kendall_tau_correlation(score1, score2, class_name=class_name)
+
+        avg_length = self.average_datapoint_length
+        self.correlations[(key1, key2)].calculate_kendall_top_k_average_length_correlation(score1, score2, average_length=avg_length, p=0.5, class_name=class_name)
+        
+        self.correlations[(key1, key2)].calculate_kendall_top_k_non_zero_correlation(score1, score2, kIsNonZero=True, p=0.5, class_name=class_name)
+        
+      #TODO reimplement different k warnings.
+
       # Important: 'apples to apples' comparison: ensure the correlation calculation between the gradient and feature erasure measures
       # uses the same k value for the kendall_top_k calculation as was used for the previous correlation calculations
-      if k_af != k_ag:
-        self.logger.warning(f'kendall_top_k_non_zero mismatched k_value {k_af} != {k_ag}')
-      _, k_fg = self.feature_erasure_gradient_correlation.calculate_kendall_top_k_non_zero_correlation(prediction_difference, gradients, k=k_af, kIsNonZero=False, class_name=class_name)
-      if k_fg != k_af:
-        self.logger.warning(f'Used different k {k_fg}')
+      #if k_af != k_ag:
+      #  self.logger.warning(f'kendall_top_k_non_zero mismatched k_value {k_af} != {k_ag}')
+      #_, k_fg = self.loo_gradient_correlation.calculate_kendall_top_k_non_zero_correlation(loo, gradients, k=k_af, kIsNonZero=False, class_name=class_name)
+      #if k_fg != k_af:
+      #  self.logger.warning(f'Used different k {k_fg}')
 
   def generate_and_save_correlation_data_frames(self):
     csvs = []
-    for correlation in self.correlations:
+    for correlation in self.correlations.values():
       k_tau_df = correlation.generate_kendall_tau_data_frame()
       csvs.append((correlation.id, 'kendall_tau', k_tau_df))
       top_k_average_length = correlation.generate_kendall_top_k_data_frame(CorrelationMeasures.KENDALL_TOP_K_AVG_LEN)
@@ -167,7 +184,7 @@ class JWAEDEvaluator():
     for i, correlation_measure in enumerate(CorrelationMeasures):
       axes = ax[i]
       linestyles = ['-', '--', ':']
-      correlations = [(correlation.id, correlation.get_total_correlation(correlation_measure)) for correlation in self.correlations]
+      correlations = [(correlation.id, correlation.get_total_correlation(correlation_measure)) for correlation in self.correlations.values()]
       plotting.generate_correlation_density_plot(ax=axes,correlations=correlations)
       plot_title = f'{self.dataset_name}_{self.attention_type}_{self.attention_activation_function}_{correlation_measure.value}'
       plotting.annotate(ax=axes, title=plot_title)
