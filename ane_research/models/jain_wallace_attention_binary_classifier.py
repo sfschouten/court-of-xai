@@ -10,6 +10,7 @@ import torch
 
 import logging
 
+from allennlp.data import Batch
 from allennlp.data.vocabulary import Vocabulary
 from allennlp.models.model import Model
 from allennlp.modules import FeedForward, Seq2SeqEncoder, TextFieldEmbedder
@@ -17,10 +18,11 @@ from allennlp.nn import util
 from allennlp.training.metrics import Auc, CategoricalAccuracy, F1Measure
 
 from ane_research.models.modules import Attention
+from ane_research.interpret.saliency_interpreters.captum_interpreter import CaptumCompatible
 
 
 @Model.register('jain_wallace_attention_binary_classifier')
-class JWAED(Model):
+class JWAED(Model, CaptumCompatible):
   '''
     AllenNLP implementation of the Encoder/decoder with attention model for binary classification as described
     in 'Attention is Not Explanation' (Jain and Wallace 2019 - https://arxiv.org/pdf/1902.10186.pdf)
@@ -39,15 +41,7 @@ class JWAED(Model):
     }
     self.loss = torch.nn.BCEWithLogitsLoss()
 
-  @overrides
-  def forward(self, tokens: Dict[str, torch.LongTensor], label: torch.LongTensor = None) -> Dict[str, torch.Tensor]:
-    # AllenNLP models return an output dictionary with information needed for future calculations
-    output_dict = {}
-
-    # Encode
-    tokens_mask = util.get_text_field_mask(tokens)
-    embedded_tokens = self.word_embeddings(tokens)
-    output_dict['embedding'] = embedded_tokens
+  def forward_inner(self, embedded_tokens, tokens_mask, output_dict):
     encoded_tokens = self.encoder(embedded_tokens, tokens_mask)
 
     # Compute attention
@@ -57,15 +51,30 @@ class JWAED(Model):
 
     # Decode
     logits = self.decoder(context)
+    output_dict['logits'] = logits
     prediction = torch.sigmoid(logits)
+    return prediction 
+
+  @overrides
+  def forward(self, tokens: Dict[str, torch.LongTensor], label: torch.LongTensor = None) -> Dict[str, torch.Tensor]:
+    # AllenNLP models return an output dictionary with information needed for future calculations
+    output_dict = {}
+
+    # Encode
+    tokens_mask = util.get_text_field_mask(tokens)
+    embedded_tokens = self.word_embeddings(tokens)
+    output_dict['embedding'] = embedded_tokens
+
+    prediction = self.forward_inner(embedded_tokens, tokens_mask, output_dict)
     output_dict['prediction'] = prediction
+    
     class_probabilities = torch.cat((1 - prediction, prediction), dim=1)
     output_dict['class_probabilities'] = class_probabilities
 
     # A label is not necessary to perform a forward pass. There are situations where you don't have a label,
     # such as in a demo or when this model is a component in a larger model
     if label is not None:
-      loss = self.loss(logits, label.unsqueeze(-1).float())
+      loss = self.loss(output_dict['logits'], label.unsqueeze(-1).float())
       output_dict['loss'] = loss
       self.metrics['accuracy'](class_probabilities, label)
       self.metrics['f1_measure'](class_probabilities, label)
@@ -73,6 +82,29 @@ class JWAED(Model):
 
     return output_dict
 
+  
+  @overrides
+  def captum_sub_model(self):
+    return _CaptumSubModel(self)
+
+  @overrides
+  def instances_to_captum_inputs(self, labeled_instances):
+    batch_size = len(labeled_instances)
+    with torch.no_grad():
+      cuda_device = self._get_prediction_device()
+      batch = Batch(labeled_instances)
+      batch.index_instances(self.vocab)
+      model_input = util.move_to_device(batch.as_tensor_dict(), cuda_device)
+    
+      tokens = model_input['tokens']
+      label = model_input['label']
+
+      tokens_mask = util.get_text_field_mask(tokens)
+      embedded_tokens = self.word_embeddings(tokens)
+
+      output_dict = {}
+      output_dict['embedding'] = embedded_tokens
+      return (embedded_tokens,), (tokens_mask, output_dict)
 
   @overrides
   def get_metrics(self, reset: bool = False) -> Dict[str, float]:
@@ -96,3 +128,15 @@ class JWAED(Model):
     predictions = class_probabilities.cpu().data.numpy()
     output_dict['label'] = np.argmax(predictions, axis=1)
     return output_dict
+
+
+class _CaptumSubModel(torch.nn.Module):
+
+  def __init__(self, model: JWAED):
+      super().__init__()
+      self.model = model
+
+  @overrides
+  def forward(self, word_embeddings, tokens_mask, output_dict):
+    return self.model.forward_inner(word_embeddings, tokens_mask, output_dict)
+

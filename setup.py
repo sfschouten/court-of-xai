@@ -51,7 +51,8 @@ REQUIRED = [
   'entmax',
   'requests',
   'python-json-logger',
-  'lime'
+  'lime',
+  'captum'
 ]
 
 SETUP = [

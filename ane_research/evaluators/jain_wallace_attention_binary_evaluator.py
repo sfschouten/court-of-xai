@@ -27,6 +27,7 @@ import ane_research.utils.plotting as plotting
 from ane_research.interpret.saliency_interpreters.leave_one_out import LeaveOneOut
 from ane_research.interpret.saliency_interpreters.attention_interpreter import AttentionInterpreter 
 from ane_research.interpret.saliency_interpreters.lime import LimeInterpreter 
+from ane_research.interpret.saliency_interpreters.captum_interpreter import CaptumInterpreter, CaptumDeepLiftShap, CaptumGradientShap
 from     allennlp.interpret.saliency_interpreters import SimpleGradient
 from     allennlp.interpret.saliency_interpreters import IntegratedGradient
 
@@ -74,7 +75,7 @@ class JWAEDEvaluator():
     self.archive = load_archive(model_path)
     self.model = self.archive.model
     self.predictor = Predictor.from_archive(self.archive, 'jain_wallace_attention_binary_classification_predictor')
-    self.class_names = list(set(self.model.vocab.get_index_to_token_vocabulary('labels').values()))
+    self.class_idx2names = self.model.vocab.get_index_to_token_vocabulary('labels')
 
     # load test instances and split into batches
     self.test_data_path = self.archive.config.params['test_data_path']
@@ -92,7 +93,9 @@ class JWAEDEvaluator():
     # saliency interpreters
     self.interpreters = {} 
     #TODO replace the following by a constructor parameter
-    self.interpreters['lime'] = LimeInterpreter(self.predictor)
+    #self.interpreters['dl_shap'] = CaptumInterpreter(self.predictor, CaptumDeepLiftShap(self.predictor))
+    self.interpreters['g_shap'] = CaptumInterpreter(self.predictor, CaptumGradientShap(self.predictor))
+    #self.interpreters['lime'] = LimeInterpreter(self.predictor)
     #self.interpreters['loo']  = LeaveOneOut(self.predictor)
     self.interpreters['attn'] = AttentionInterpreter(self.predictor)
     #self.interpreters['grad'] = SimpleGradient(self.predictor)
@@ -106,7 +109,7 @@ class JWAEDEvaluator():
     # correlations
     self.correlations = {}
     for (key1, key2) in itertools.combinations(self.interpreters, 2):
-      self.correlations[(key1, key2)] = Correlation(key1, key2, self.class_names)
+      self.correlations[(key1, key2)] = Correlation(key1, key2, list(set(self.class_idx2names.values())))
 
     if self.precalculate:
       self.calculate_feature_importance_measures()
@@ -134,8 +137,8 @@ class JWAEDEvaluator():
     for i in tqdm(range(len(self.test_instances))):
       L = len(self.test_instances[i].fields['tokens']) # sequence length
       
-      class_name = str(self.labels[i])
-
+      label = self.labels[i]
+      class_name = self.class_idx2names[int(label)]
       for (key1, scoreset1), (key2, scoreset2) in itertools.combinations(self.salience_scores.items(), 2):
         score1 = scoreset1[f'instance_{i+1}']
         score2 = scoreset2[f'instance_{i+1}']
@@ -190,3 +193,4 @@ class JWAEDEvaluator():
       plotting.annotate(ax=axes, title=plot_title)
       plotting.adjust_gridspec()
       plotting.save_axis_in_file(fig, axes, self.graph_path, plot_title)
+
