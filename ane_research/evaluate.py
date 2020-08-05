@@ -43,7 +43,7 @@ def ensure_dir(file_path):
   if not os.path.exists(directory):
     os.makedirs(directory)
 
-class JWAEDEvaluator():
+class Evaluator():
   '''
     Evaluator class to calculate, plot, and save correlation measures as defined in 'Attention is Not Explanation'
     (Jain and Wallace 2019 - https://arxiv.org/pdf/1902.10186.pdf), namely:
@@ -55,26 +55,22 @@ class JWAEDEvaluator():
       - model_path (str): Path to archived model generated during an AllenNLP training run
       - calculate_on_init (bool, default: False): Calculate feature importance measures and correlations on class initialization
   '''
-  def __init__(self, model_path: str, calculate_on_init: bool = False):
+  def __init__(self, experiment_name: str, model_path: str, calculate_on_init: bool = False):
     self.precalculate = calculate_on_init
     self.logger = logging.getLogger(Config.logger_name)
 
+    self.experiment_name = experiment_name
     # load a new AllenNLP predictor from the archive
     self.model_path = model_path
     self.model_base_path = os.path.split(self.model_path)[0]
     self.correlation_path = self.model_base_path + '/correlation/'
-
-    model_specifics = os.path.split(os.path.split(self.model_base_path)[0])[1].split('_')
-    self.dataset_name = model_specifics[0]
-    self.attention_type = model_specifics[1]
-    self.attention_activation_function = model_specifics[2]
 
     ensure_dir(self.correlation_path)
     self.graph_path = self.model_base_path + '/graphs/'
     ensure_dir(self.graph_path)
     self.archive = load_archive(model_path)
     self.model = self.archive.model
-    self.predictor = Predictor.from_archive(self.archive, 'jain_wallace_attention_binary_classification_predictor')
+    self.predictor = Predictor.from_archive(self.archive, self.archive.config.params['model']['type'])
     self.class_idx2names = self.model.vocab.get_index_to_token_vocabulary('labels')
 
     # load test instances and split into batches
@@ -121,7 +117,7 @@ class JWAEDEvaluator():
 
   def calculate_feature_importance_measures(self):
     for key, interpreter in self.interpreters.items():
-      self.salience_scores[key] = interpreter.saliency_interpret_dataset(self.test_instances, self.batch_size)
+      self.salience_scores[key] = interpreter.saliency_interpret_instances(self.test_instances)
 
     instances = self.test_instances
     batches = [ instances[x:x+self.batch_size] for x in range(0, len(instances), self.batch_size) ]
@@ -189,7 +185,7 @@ class JWAEDEvaluator():
       linestyles = ['-', '--', ':']
       correlations = [(correlation.id, correlation.get_total_correlation(correlation_measure)) for correlation in self.correlations.values()]
       plotting.generate_correlation_density_plot(ax=axes,correlations=correlations)
-      plot_title = f'{self.dataset_name}_{self.attention_type}_{self.attention_activation_function}_{correlation_measure.value}'
+      plot_title = f'{self.experiment_name}_{correlation_measure.value}'
       plotting.annotate(ax=axes, title=plot_title)
       plotting.adjust_gridspec()
       plotting.save_axis_in_file(fig, axes, self.graph_path, plot_title)

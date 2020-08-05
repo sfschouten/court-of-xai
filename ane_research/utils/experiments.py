@@ -7,7 +7,7 @@ from typing import List
 
 from datetime import datetime, timezone
 from ane_research.config import Config
-from ane_research.evaluators import JWAEDEvaluator
+from ane_research.evaluate import Evaluator
 
 from allennlp.commands.train import train_model_from_file
 
@@ -29,8 +29,6 @@ class Experiment():
       self.out_path = f'{outputs_path}/{self.experiment_name}/{timestamp}'
     
     self.model_path = self.out_path + '/model.tar.gz'
- 
-    self.dataset_name, self.attention_type, self.attention_activation_function = self.experiment_name.split('_')
 
     # import the models from our and official package.
     from allennlp.common import util as common_util
@@ -46,7 +44,7 @@ class Experiment():
     )
 
   def evaluate(self) -> None:
-    self.evaluator = JWAEDEvaluator(model_path = self.model_path, calculate_on_init=True)
+    self.evaluator = Evaluator(experiment_name = self.experiment_name, model_path = self.model_path, calculate_on_init=True)
 
   def generate_and_save_artifacts(self) ->  None:
     self.evaluator.generate_and_save_correlation_data_frames()

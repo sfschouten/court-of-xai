@@ -13,10 +13,12 @@ import numpy as np
 from overrides import overrides
 import torch
 
+from ane_research.interpret.saliency_interpreters.attention_interpreter import AttentionModelPredictor
+
 
 @Predictor.register("distilbert_sequence_classification")
 @Predictor.register("distilbert_sequence_classification_from_huggingface")
-class DistilBertForSequenceClassificationPredictor(Predictor):
+class DistilBertForSequenceClassificationPredictor(Predictor, AttentionModelPredictor):
 
     @overrides
     def _json_to_instance(self, json_dict: JsonDict) -> Instance:
