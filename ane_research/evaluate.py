@@ -122,7 +122,9 @@ class Evaluator():
       for instance_batch in self.batched_test_instances:
         scores = interpreter.saliency_interpret_instances(instance_batch)
         for val in scores.values():
-          self.salience_scores[key][f'instance_{counter+1}'] = val
+          # TODO: saliency_interpret_instances returns a dict with (hopefully one key). 
+          # We may need more complex logic here
+          self.salience_scores[key][f'instance_{counter+1}'] = list(val.values())[0]
           counter += 1
 
     for instance_batch in self.batched_test_instances:
@@ -139,8 +141,15 @@ class Evaluator():
       label = self.labels[i]
       class_name = self.class_idx2names[int(label)]
       for (key1, scoreset1), (key2, scoreset2) in itertools.combinations(self.salience_scores.items(), 2):
-        score1 = scoreset1[f'instance_{i+1}']
+        score1: np.ndarray = scoreset1[f'instance_{i+1}']
         score2 = scoreset2[f'instance_{i+1}']
+
+        # TODO: Average across the n_layers dimension, if necessary. Perhaps a more elegant solution here. 
+        if len(score1.shape()) == 2:
+          score1 = score1.average(axis=1)
+
+        if len(score2.shape()) == 2:
+          score2 = score2.average(axis=1)
 
         if len(score1) != len(score2):
             self.logger.error(f"List of scores for {key1} and {key2} were not equal length!")

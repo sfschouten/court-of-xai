@@ -47,7 +47,7 @@ class CaptumAttribution(Registrable):
         for idx, instance in zip(range(batch_size), labeled_instances):
             sequence_length = len(instance['tokens'])
             explanation = token_attr[idx].tolist()[:sequence_length]
-            instances_with_captum_attr[f'instance_{idx+1}'] = explanation
+            instances_with_captum_attr[f'instance_{idx+1}'] = { "dlshap_scores" : explanation }
 
         return sanitize(instances_with_captum_attr)
 
