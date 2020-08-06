@@ -191,7 +191,9 @@ class DistilBertForSequenceClassification(Model, CaptumCompatible):
         output_dict["logits"] = logits
 
         if output_attentions:
-            output_dict["attention"] = encoder_output[1][0]
+            # Tuple of n_layer tensors of shape (bs, num_heads, seq_length, seq_length)
+            # Stack to single tuple of (bs, n_layers, num_heads, seq_length, seq_length)
+            output_dict["attention"] = torch.stack(encoder_output[1], dim=1)
 
         class_probabilities = torch.nn.Softmax(dim=-1)(logits)
         return class_probabilities

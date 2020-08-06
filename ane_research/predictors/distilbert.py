@@ -48,4 +48,11 @@ class DistilBertForSequenceClassificationPredictor(Predictor, AttentionModelPred
 
     def get_attention_based_salience_for_instance(self, labeled_instance: Instance):
         output = self.predict_instance(labeled_instance)
-        return output['attention']
+        attention_weights = np.asarray(output['attention']) # (n_layers, n_heads, seq_length, seq_length)
+        # average across layers
+        attention_weights = np.average(attention_weights, axis=0)
+        # average across heads
+        attention_weights = np.average(attention_weights, axis=0)
+        # collapse to 1D
+        attention_weights = np.max(attention_weights, axis=0)
+        return attention_weights
