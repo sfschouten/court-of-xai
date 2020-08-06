@@ -39,13 +39,13 @@ class AttentionInterpreter(SaliencyInterpreter):
         instances_with_attn = dict()
 
         for i_idx, instance in enumerate(labeled_instances):
-            original_pred = self.predictor.predict_instance(instance)['prediction']
+            # original_pred = self.predictor.predict_instance(instance)['prediction']
            
             attn_scores = self.predictor.get_attention_based_salience_for_instance(instance)
             
-            instances_with_attn[f'instance_{i_idx+1}'] = {'attn_scores' : []}
+            instances_with_attn[f'instance_{i_idx+1}'] = []
             for s_idx, score in enumerate(attn_scores):
-                instances_with_attn[f'instance_{i_idx+1}']['attn_scores'].append(score)
+                instances_with_attn[f'instance_{i_idx+1}'].append(score)
 
         return sanitize(instances_with_attn)
  

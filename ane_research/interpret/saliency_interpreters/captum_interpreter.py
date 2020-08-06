@@ -47,7 +47,7 @@ class CaptumAttribution(Registrable):
         for idx, instance in zip(range(batch_size), labeled_instances):
             sequence_length = len(instance['tokens'])
             explanation = token_attr[idx].tolist()[:sequence_length]
-            instances_with_captum_attr[f'instance_{idx+1}'] = { "dlshap_scores" : explanation }
+            instances_with_captum_attr[f'instance_{idx+1}'] = explanation
 
         return sanitize(instances_with_captum_attr)
 
@@ -118,9 +118,10 @@ class CaptumDeepLiftShap(CaptumAttribution, DeepLiftShap):
 
 
     def attribute_kwargs(self, captum_inputs):
-        inputs, additional = captum_inputs
+        inputs, target, additional = captum_inputs
         baselines = tuple(torch.zeros_like(tensor) for tensor in inputs)
         return {'inputs' : inputs,
+                'target': target,
                 'baselines' : baselines,
                 'additional_forward_args' : additional}
 
@@ -139,10 +140,11 @@ class CaptumGradientShap(CaptumAttribution, GradientShap):
 
 
     def attribute_kwargs(self, captum_inputs):
-        inputs, additional = captum_inputs
+        inputs, target, additional = captum_inputs
         baselines = tuple(torch.zeros_like(tensor) for tensor in inputs)
         return {'inputs' : inputs,
                 'baselines' : baselines,
+                'target': target,
                 'additional_forward_args' : additional}
 
 

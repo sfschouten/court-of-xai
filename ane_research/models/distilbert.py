@@ -171,8 +171,6 @@ class DistilBertForSequenceClassification(Model, CaptumCompatible):
         output_attentions: bool,
         output_dict: JsonDict
     ):
-        print(f'Embedded tokens: {embedded_tokens.shape}')
-        print(f'Attention Mask: {attention_mask.shape}')
         # (bs, seq_len) -> (num_hidden_layers, batch, num_heads, seq_length, seq_length)
         head_mask = attention_mask.unsqueeze(0).unsqueeze(2).unsqueeze(-1)
         head_mask = head_mask.expand(self.encoder.n_layers, -1, self.encoder.n_heads, -1, attention_mask.shape[1])
@@ -256,6 +254,15 @@ class DistilBertForSequenceClassification(Model, CaptumCompatible):
             return instance_separated_output
 
     @overrides
+    def make_output_human_readable(self, output_dict: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
+        '''
+        Does a simple argmax over the class probabilities, converts indices to string labels, and
+        adds a ``'label'`` key to the dictionary with the result.
+        '''
+        output_dict['label'] = torch.argmax(output_dict['class_probabilities'], dim=1)
+        return output_dict
+
+    @overrides
     def captum_sub_model(self):
         return _CaptumSubModel(self)
 
@@ -274,7 +281,7 @@ class DistilBertForSequenceClassification(Model, CaptumCompatible):
 
             output_dict = {}
             output_dict["embedding"] = embedded_tokens
-            return (embedded_tokens,), (attention_mask, output_dict)
+            return (embedded_tokens,), label, (attention_mask, output_dict)
 
 class _CaptumSubModel(torch.nn.Module):
 

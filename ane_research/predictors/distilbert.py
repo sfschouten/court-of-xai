@@ -35,8 +35,8 @@ class DistilBertForSequenceClassificationPredictor(Predictor, AttentionModelPred
         return {
           'tokens': json_dict['tokens'],
           'class_probabilities': output['class_probabilities'],
-          'predicted_sentiment': label_dict[int(np.argmax(output['class_probabilities']))],
-          'actual_sentiment': json_dict.get('sentiment')
+          'prediction': label_dict[int(np.argmax(output['class_probabilities']))],
+          'actual': json_dict.get('sentiment')
         }
 
     @overrides

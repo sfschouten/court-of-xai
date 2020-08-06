@@ -76,11 +76,11 @@ class Evaluator():
     # load test instances and split into batches
     self.test_data_path = self.archive.config.params['test_data_path']
     self.test_instances = self.predictor._dataset_reader.read(self.test_data_path)
-    
+
     # TODO remove this, just to speed up debugging.
-    #subset = list(itertools.islice(self.test_instances, 100))
-    #vocab = self.test_instances.vocab
-    #self.test_instances = AllennlpDataset(subset, vocab)
+    # subset = list(itertools.islice(self.test_instances, 100))
+    # vocab = self.test_instances.vocab
+    # self.test_instances = AllennlpDataset(subset, vocab)
 
     self.batch_size = self.archive.config.params['data_loader']['batch_sampler']['batch_size']
     self.batched_test_instances = list(batch(self.test_instances, self.batch_size))
@@ -95,7 +95,7 @@ class Evaluator():
     #self.interpreters['loo']  = LeaveOneOut(self.predictor)
     self.interpreters['attn'] = AttentionInterpreter(self.predictor)
     #self.interpreters['grad'] = SimpleGradient(self.predictor)
-    self.interpreters['intgrad'] = IntegratedGradient(self.predictor)
+    # self.interpreters['intgrad'] = IntegratedGradient(self.predictor)
 
     self.salience_scores = {}
 
@@ -117,15 +117,18 @@ class Evaluator():
 
   def calculate_feature_importance_measures(self):
     for key, interpreter in self.interpreters.items():
-      self.salience_scores[key] = interpreter.saliency_interpret_instances(self.test_instances)
+      counter = 0
+      self.salience_scores[key] = {}
+      for instance_batch in self.batched_test_instances:
+        scores = interpreter.saliency_interpret_instances(instance_batch)
+        for val in scores.values():
+          self.salience_scores[key][f'instance_{counter+1}'] = val
+          counter += 1
 
-    instances = self.test_instances
-    batches = [ instances[x:x+self.batch_size] for x in range(0, len(instances), self.batch_size) ]
-    self.labels = []
-    for batch in batches:
-        batch_outputs = self.model.forward_on_instances(batch)
-        batch_labels = [batch_output['label'] for batch_output in batch_outputs]
-        self.labels.extend(batch_labels)
+    for instance_batch in self.batched_test_instances:
+      batch_outputs = self.model.forward_on_instances(instance_batch)
+      batch_labels = [batch_output['label'] for batch_output in batch_outputs]
+      self.labels.extend(batch_labels)
       
 
   def calculate_correlations(self):
@@ -139,9 +142,6 @@ class Evaluator():
         score1 = scoreset1[f'instance_{i+1}']
         score2 = scoreset2[f'instance_{i+1}']
 
-        score1 = next(iter(score1.values()))
-        score2 = next(iter(score2.values()))
-    
         if len(score1) != len(score2):
             self.logger.error(f"List of scores for {key1} and {key2} were not equal length!")
             self.logger.debug(f"Relevant instance: {self.test_instances[i]}")
