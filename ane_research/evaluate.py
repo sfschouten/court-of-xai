@@ -89,12 +89,12 @@ class Evaluator():
     # saliency interpreters
     self.interpreters = {} 
     #TODO replace the following by a constructor parameter
-    #self.interpreters['dl_shap'] = CaptumInterpreter(self.predictor, CaptumDeepLiftShap(self.predictor))
+    # self.interpreters['dl_shap'] = CaptumInterpreter(self.predictor, CaptumDeepLiftShap(self.predictor))
     self.interpreters['g_shap'] = CaptumInterpreter(self.predictor, CaptumGradientShap(self.predictor))
-    #self.interpreters['lime'] = LimeInterpreter(self.predictor)
-    #self.interpreters['loo']  = LeaveOneOut(self.predictor)
+    # self.interpreters['lime'] = LimeInterpreter(self.predictor)
+    # self.interpreters['loo']  = LeaveOneOut(self.predictor)
     self.interpreters['attn'] = AttentionInterpreter(self.predictor)
-    #self.interpreters['grad'] = SimpleGradient(self.predictor)
+    # self.interpreters['grad'] = SimpleGradient(self.predictor)
     # self.interpreters['intgrad'] = IntegratedGradient(self.predictor)
 
     self.salience_scores = {}
@@ -142,13 +142,6 @@ class Evaluator():
       for (key1, scoreset1), (key2, scoreset2) in itertools.combinations(self.salience_scores.items(), 2):
         score1 = scoreset1[f'instance_{i+1}']
         score2 = scoreset2[f'instance_{i+1}']
-
-        # TODO: Average across the n_layers dimension, if necessary. Perhaps a more elegant solution here. 
-        if len(score1.shape) == 2:
-          score1 = np.average(score1, axis=1)
-
-        if len(score2.shape) == 2:
-          score2 = np.average(score2, axis=1)
 
         if len(score1) != len(score2):
             self.logger.error(f"List of scores for {key1} and {key2} were not equal length!")
