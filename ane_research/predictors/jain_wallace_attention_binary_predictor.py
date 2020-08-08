@@ -15,7 +15,7 @@ from allennlp.predictors.predictor import Predictor
 
 from ..interpret.saliency_interpreters.attention_interpreter import AttentionModelPredictor
 
-@Predictor.register('jain_wallace_attention_binary_classification_predictor')
+@Predictor.register('jain_wallace_attention_binary_classifier')
 class JWAEDPredictor(Predictor, AttentionModelPredictor):
   '''Predictor wrapper for the Jain Wallace Attention Binary Classification model'''
 

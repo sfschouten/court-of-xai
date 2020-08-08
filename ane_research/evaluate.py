@@ -43,7 +43,7 @@ def ensure_dir(file_path):
   if not os.path.exists(directory):
     os.makedirs(directory)
 
-class JWAEDEvaluator():
+class Evaluator():
   '''
     Evaluator class to calculate, plot, and save correlation measures as defined in 'Attention is Not Explanation'
     (Jain and Wallace 2019 - https://arxiv.org/pdf/1902.10186.pdf), namely:
@@ -55,36 +55,32 @@ class JWAEDEvaluator():
       - model_path (str): Path to archived model generated during an AllenNLP training run
       - calculate_on_init (bool, default: False): Calculate feature importance measures and correlations on class initialization
   '''
-  def __init__(self, model_path: str, calculate_on_init: bool = False):
+  def __init__(self, experiment_name: str, model_path: str, calculate_on_init: bool = False):
     self.precalculate = calculate_on_init
     self.logger = logging.getLogger(Config.logger_name)
 
+    self.experiment_name = experiment_name
     # load a new AllenNLP predictor from the archive
     self.model_path = model_path
     self.model_base_path = os.path.split(self.model_path)[0]
     self.correlation_path = self.model_base_path + '/correlation/'
-
-    model_specifics = os.path.split(os.path.split(self.model_base_path)[0])[1].split('_')
-    self.dataset_name = model_specifics[0]
-    self.attention_type = model_specifics[1]
-    self.attention_activation_function = model_specifics[2]
 
     ensure_dir(self.correlation_path)
     self.graph_path = self.model_base_path + '/graphs/'
     ensure_dir(self.graph_path)
     self.archive = load_archive(model_path)
     self.model = self.archive.model
-    self.predictor = Predictor.from_archive(self.archive, 'jain_wallace_attention_binary_classification_predictor')
+    self.predictor = Predictor.from_archive(self.archive, self.archive.config.params['model']['type'])
     self.class_idx2names = self.model.vocab.get_index_to_token_vocabulary('labels')
 
     # load test instances and split into batches
     self.test_data_path = self.archive.config.params['test_data_path']
     self.test_instances = self.predictor._dataset_reader.read(self.test_data_path)
-    
+
     # TODO remove this, just to speed up debugging.
-    #subset = list(itertools.islice(self.test_instances, 100))
-    #vocab = self.test_instances.vocab
-    #self.test_instances = AllennlpDataset(subset, vocab)
+    # subset = list(itertools.islice(self.test_instances, 100))
+    # vocab = self.test_instances.vocab
+    # self.test_instances = AllennlpDataset(subset, vocab)
 
     self.batch_size = self.archive.config.params['data_loader']['batch_sampler']['batch_size']
     self.batched_test_instances = list(batch(self.test_instances, self.batch_size))
@@ -93,13 +89,13 @@ class JWAEDEvaluator():
     # saliency interpreters
     self.interpreters = {} 
     #TODO replace the following by a constructor parameter
-    #self.interpreters['dl_shap'] = CaptumInterpreter(self.predictor, CaptumDeepLiftShap(self.predictor))
+    # self.interpreters['dl_shap'] = CaptumInterpreter(self.predictor, CaptumDeepLiftShap(self.predictor))
     self.interpreters['g_shap'] = CaptumInterpreter(self.predictor, CaptumGradientShap(self.predictor))
-    #self.interpreters['lime'] = LimeInterpreter(self.predictor)
-    #self.interpreters['loo']  = LeaveOneOut(self.predictor)
+    # self.interpreters['lime'] = LimeInterpreter(self.predictor)
+    # self.interpreters['loo']  = LeaveOneOut(self.predictor)
     self.interpreters['attn'] = AttentionInterpreter(self.predictor)
-    #self.interpreters['grad'] = SimpleGradient(self.predictor)
-    self.interpreters['intgrad'] = IntegratedGradient(self.predictor)
+    # self.interpreters['grad'] = SimpleGradient(self.predictor)
+    # self.interpreters['intgrad'] = IntegratedGradient(self.predictor)
 
     self.salience_scores = {}
 
@@ -121,15 +117,19 @@ class JWAEDEvaluator():
 
   def calculate_feature_importance_measures(self):
     for key, interpreter in self.interpreters.items():
-      self.salience_scores[key] = interpreter.saliency_interpret_dataset(self.test_instances, self.batch_size)
+      counter = iter(range(1, len(self.test_instances) + 1))
+      self.salience_scores[key] = {}
+      for instance_batch in self.batched_test_instances:
+        scores = interpreter.saliency_interpret_instances(instance_batch)
+        for val in scores.values():
+          # TODO: saliency_interpret_instances returns a dict with (hopefully one key). 
+          # We may need more complex logic here
+          self.salience_scores[key][f'instance_{next(counter)}'] = np.asarray(list(val.values())[0])
 
-    instances = self.test_instances
-    batches = [ instances[x:x+self.batch_size] for x in range(0, len(instances), self.batch_size) ]
-    self.labels = []
-    for batch in batches:
-        batch_outputs = self.model.forward_on_instances(batch)
-        batch_labels = [batch_output['label'] for batch_output in batch_outputs]
-        self.labels.extend(batch_labels)
+    for instance_batch in self.batched_test_instances:
+      batch_outputs = self.model.forward_on_instances(instance_batch)
+      batch_labels = [batch_output['label'] for batch_output in batch_outputs]
+      self.labels.extend(batch_labels)
       
 
   def calculate_correlations(self):
@@ -143,9 +143,6 @@ class JWAEDEvaluator():
         score1 = scoreset1[f'instance_{i+1}']
         score2 = scoreset2[f'instance_{i+1}']
 
-        score1 = next(iter(score1.values()))
-        score2 = next(iter(score2.values()))
-    
         if len(score1) != len(score2):
             self.logger.error(f"List of scores for {key1} and {key2} were not equal length!")
             self.logger.debug(f"Relevant instance: {self.test_instances[i]}")
@@ -189,7 +186,7 @@ class JWAEDEvaluator():
       linestyles = ['-', '--', ':']
       correlations = [(correlation.id, correlation.get_total_correlation(correlation_measure)) for correlation in self.correlations.values()]
       plotting.generate_correlation_density_plot(ax=axes,correlations=correlations)
-      plot_title = f'{self.dataset_name}_{self.attention_type}_{self.attention_activation_function}_{correlation_measure.value}'
+      plot_title = f'{self.experiment_name}_{correlation_measure.value}'
       plotting.annotate(ax=axes, title=plot_title)
       plotting.adjust_gridspec()
       plotting.save_axis_in_file(fig, axes, self.graph_path, plot_title)

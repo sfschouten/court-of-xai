@@ -1,4 +1,4 @@
-from typing import List, Dict, Union, Iterable, cast 
+from typing import List, Dict, Union, Iterable, cast
 
 from lime import lime_text
 from lime.lime_text import LimeTextExplainer
@@ -27,14 +27,14 @@ class CaptumAttribution(Registrable):
         if not isinstance(self.predictor._model, CaptumCompatible):
             raise TypeError("Predictor._model must be CaptumCompatible.")
 
-    def saliency_interpret_instances(self, labeled_instances: Iterable[Instance]) -> JsonDict: 
+    def saliency_interpret_instances(self, labeled_instances: Iterable[Instance]) -> JsonDict:
         instances_with_captum_attr = dict()
-        
+
         model = self.predictor._model
-        
+
         captum_inputs = model.instances_to_captum_inputs(labeled_instances)
         kwargs = self.attribute_kwargs(captum_inputs)
-       
+
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", category=UserWarning)
             attributions, = self.attribute(**kwargs)
@@ -42,7 +42,7 @@ class CaptumAttribution(Registrable):
         batch_size, _, _ = attributions.shape
 
         # sum out the embedding dimensions to get token importance
-        token_attr = attributions.sum(dim=-1).abs() 
+        token_attr = attributions.sum(dim=-1).abs()
 
         for idx, instance in zip(range(batch_size), labeled_instances):
             sequence_length = len(instance['tokens'])
@@ -66,9 +66,9 @@ class CaptumAttribution(Registrable):
 # Captum expects the input to the model you are interpreting to be one or more
 # Tensor objects, but AllenNLP Model classes often take Dict[...] objects as
 # their input. To fix this we require the Models that are to be used with Captum
-# to implement a set of methods that make it possible to use Captum. 
+# to implement a set of methods that make it possible to use Captum.
 class CaptumCompatible():
-    
+
     def captum_sub_model(self):
         """
         Returns a PyTorch nn.Module instance with a forward that performs
@@ -81,11 +81,11 @@ class CaptumCompatible():
         """
         Converts a set of Instances to a Tensor suitable to pass to the submodule
         obtained through captum_sub_model.
-        
+
         Returns
-          Tuple with (inputs, additional_forward_args)
-          Where the inputs Tensors should have the Batch dimension first, and the 
-          Embedding dimension last.
+          Tuple with (inputs, target, additional_forward_args)
+          Both inputs and target tensors should have the Batch dimension first.
+          The inputs Tensors should have the Embedding dimension last.
         """
         raise NotImplementedError()
 
@@ -99,10 +99,10 @@ class CaptumInterpreter(SaliencyInterpreter):
         self.captum = captum
 
     def saliency_interpret_instances(self, labeled_instances: Iterable[Instance]) -> JsonDict:
-        return self.captum.saliency_interpret_instances(labeled_instances)        
+        return self.captum.saliency_interpret_instances(labeled_instances)
 
 
-# Below are wrapper classes for various Captum Attribution sub-classes. 
+# Below are wrapper classes for various Captum Attribution sub-classes.
 
 # ---DeepLiftShap---
 from captum.attr import DeepLiftShap
@@ -110,17 +110,18 @@ from captum.attr import DeepLiftShap
 class CaptumDeepLiftShap(CaptumAttribution, DeepLiftShap):
 
     def __init__(self, predictor: Predictor):
-    
-        CaptumAttribution.__init__(self, predictor)    
+
+        CaptumAttribution.__init__(self, predictor)
 
         self.submodel = self.predictor._model.captum_sub_model()
         DeepLiftShap.__init__(self, self.submodel)
 
 
     def attribute_kwargs(self, captum_inputs):
-        inputs, additional = captum_inputs
+        inputs, target, additional = captum_inputs
         baselines = tuple(torch.zeros_like(tensor) for tensor in inputs)
         return {'inputs' : inputs,
+                'target': target,
                 'baselines' : baselines,
                 'additional_forward_args' : additional}
 
@@ -131,18 +132,19 @@ from captum.attr import GradientShap
 class CaptumGradientShap(CaptumAttribution, GradientShap):
 
     def __init__(self, predictor: Predictor):
-    
-        CaptumAttribution.__init__(self, predictor)    
+
+        CaptumAttribution.__init__(self, predictor)
 
         self.submodel = self.predictor._model.captum_sub_model()
         GradientShap.__init__(self, self.submodel)
 
 
     def attribute_kwargs(self, captum_inputs):
-        inputs, additional = captum_inputs
+        inputs, target, additional = captum_inputs
         baselines = tuple(torch.zeros_like(tensor) for tensor in inputs)
         return {'inputs' : inputs,
                 'baselines' : baselines,
+                'target': target,
                 'additional_forward_args' : additional}
 
 

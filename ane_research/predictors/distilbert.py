@@ -13,10 +13,12 @@ import numpy as np
 from overrides import overrides
 import torch
 
+from ane_research.interpret.saliency_interpreters.attention_interpreter import AttentionModelPredictor
+
 
 @Predictor.register("distilbert_sequence_classification")
 @Predictor.register("distilbert_sequence_classification_from_huggingface")
-class DistilBertForSequenceClassificationPredictor(Predictor):
+class DistilBertForSequenceClassificationPredictor(Predictor, AttentionModelPredictor):
 
     @overrides
     def _json_to_instance(self, json_dict: JsonDict) -> Instance:
@@ -33,8 +35,8 @@ class DistilBertForSequenceClassificationPredictor(Predictor):
         return {
           'tokens': json_dict['tokens'],
           'class_probabilities': output['class_probabilities'],
-          'predicted_sentiment': label_dict[int(np.argmax(output['class_probabilities']))],
-          'actual_sentiment': json_dict.get('sentiment')
+          'prediction': label_dict[int(np.argmax(output['class_probabilities']))],
+          'actual': json_dict.get('sentiment')
         }
 
     @overrides
@@ -46,4 +48,11 @@ class DistilBertForSequenceClassificationPredictor(Predictor):
 
     def get_attention_based_salience_for_instance(self, labeled_instance: Instance):
         output = self.predict_instance(labeled_instance)
-        return output['attention']
+        attention_weights = np.asarray(output['attention']) # (n_layers, n_heads, seq_length, seq_length)
+        # average across layers
+        attention_weights = np.average(attention_weights, axis=0)
+        # average across heads
+        attention_weights = np.average(attention_weights, axis=0)
+        # collapse to 1D
+        attention_weights = np.max(attention_weights, axis=0)
+        return attention_weights

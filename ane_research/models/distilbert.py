@@ -7,7 +7,7 @@ import math
 from typing import Dict, List, Optional
 
 from allennlp.data.batch import Batch
-from allennlp.common import FromParams
+from allennlp.common import FromParams, JsonDict
 from allennlp.data import TextFieldTensors, Vocabulary, Instance
 from allennlp.models.model import Model
 from allennlp.nn import util
@@ -20,6 +20,7 @@ import torch.nn as nn
 from transformers.modeling_auto import AutoModel
 from transformers.modeling_utils import PreTrainedModel
 
+from ane_research.interpret.saliency_interpreters.captum_interpreter import CaptumCompatible
 from ane_research.models.modules.architectures.transformer import Transformer, Embeddings
 
 
@@ -106,7 +107,7 @@ class DistilBertEncoder(torch.nn.Module, FromParams):
 
 @Model.register("distilbert_sequence_classification")
 @Model.register("distilbert_sequence_classification_from_huggingface", constructor="from_huggingface_model_name")
-class DistilBertForSequenceClassification(Model):
+class DistilBertForSequenceClassification(Model, CaptumCompatible):
     def __init__(
         self,
         vocab: Vocabulary,
@@ -164,25 +165,21 @@ class DistilBertForSequenceClassification(Model):
             'accuracy': self.metrics['accuracy'].get_metric(reset=reset)
         }
 
-    @overrides
-    def forward(
-        self,
-        tokens: TextFieldTensors,
-        label: torch.LongTensor = None,
-        output_attentions: bool = False
+    def forward_inner(self,
+        embedded_tokens: torch.Tensor,
+        attention_mask: torch.Tensor,
+        output_attentions: bool,
+        output_dict: JsonDict
     ):
-        input_ids = tokens["tokens"]["token_ids"] # (bs, seq_len)
-        attention_mask = tokens["tokens"]["mask"] # (bs, seq_len)
         # (bs, seq_len) -> (num_hidden_layers, batch, num_heads, seq_length, seq_length)
         head_mask = attention_mask.unsqueeze(0).unsqueeze(2).unsqueeze(-1)
         head_mask = head_mask.expand(self.encoder.n_layers, -1, self.encoder.n_heads, -1, attention_mask.shape[1])
-
-        embedding_output = self.embeddings(input_ids) # (bs, seq_len, dim)
         encoder_output = self.encoder(
-            inputs_embeds=embedding_output,
+            inputs_embeds=embedded_tokens,
             attention_mask=attention_mask,
             head_mask=head_mask,
-            output_attentions=output_attentions)
+            output_attentions=output_attentions
+        )
 
         hidden_state = encoder_output[0]  # (bs, seq_len, dim)
         pooled_output = hidden_state[:, 0]  # (bs, dim)
@@ -190,22 +187,44 @@ class DistilBertForSequenceClassification(Model):
         pooled_output = nn.ReLU()(pooled_output)  # (bs, dim)
         pooled_output = self.dropout(pooled_output)  # (bs, dim)
         logits = self.classifier(pooled_output)  # (bs, dim)
-        
-        outputs = {}
-        outputs["logits"] = logits
+
+        output_dict["logits"] = logits
 
         if output_attentions:
-            outputs['attention'] = encoder_output[1][0]
+            # Tuple of n_layer tensors of shape (bs, num_heads, seq_length, seq_length)
+            # Stack to single tuple of (bs, n_layers, num_heads, seq_length, seq_length)
+            output_dict["attention"] = torch.stack(encoder_output[1], dim=1)
 
         class_probabilities = torch.nn.Softmax(dim=-1)(logits)
-        outputs['class_probabilities'] = class_probabilities
+        return class_probabilities
+
+    @overrides
+    def forward(
+        self,
+        tokens: TextFieldTensors,
+        label: torch.LongTensor = None,
+        output_attentions: bool = False
+    ):
+        output_dict = {}
+
+        input_ids = tokens["tokens"]["token_ids"] # (bs, seq_len)
+        attention_mask = tokens["tokens"]["mask"] # (bs, seq_len)
+
+        embedding_output = self.embeddings(input_ids) # (bs, seq_len, dim)
+        class_probabilities = self.forward_inner(
+            embedded_tokens=embedding_output,
+            attention_mask=attention_mask,
+            output_attentions=output_attentions,
+            output_dict=output_dict
+        )
+        output_dict["class_probabilities"] = class_probabilities
 
         if label is not None:
-            loss = self.loss(logits.view(-1, self.num_labels), label.view(-1))
-            outputs['loss'] = loss
+            loss = self.loss(output_dict["logits"].view(-1, self.num_labels), label.view(-1))
+            output_dict['loss'] = loss
             self.metrics['accuracy'](class_probabilities, label)
 
-        return outputs
+        return output_dict
 
     @overrides
     def forward_on_instances(self, instances: List[Instance]) -> List[Dict[str, np.ndarray]]:
@@ -235,3 +254,52 @@ class DistilBertForSequenceClassification(Model):
                 for instance_output, batch_element in zip(instance_separated_output, output):
                     instance_output[name] = batch_element
             return instance_separated_output
+
+    @overrides
+    def make_output_human_readable(self, output_dict: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
+        '''
+        Does a simple argmax over the class probabilities, converts indices to string labels, and
+        adds a ``'label'`` key to the dictionary with the result.
+        '''
+        output_dict['label'] = torch.argmax(output_dict['class_probabilities'], dim=1)
+        return output_dict
+
+    @overrides
+    def captum_sub_model(self):
+        return _CaptumSubModel(self)
+
+    @overrides
+    def instances_to_captum_inputs(self, labeled_instances):
+        batch_size = len(labeled_instances)
+        with torch.no_grad():
+            cuda_device = self._get_prediction_device()
+            batch = Batch(labeled_instances)
+            batch.index_instances(self.vocab)
+            model_input = util.move_to_device(batch.as_tensor_dict(), cuda_device)
+            input_ids = model_input["tokens"]["tokens"]["token_ids"]
+            label = model_input["label"]
+            attention_mask = model_input["tokens"]["tokens"]["mask"]
+            embedded_tokens = self.embeddings(input_ids)
+
+            output_dict = {}
+            output_dict["embedding"] = embedded_tokens
+            return (embedded_tokens,), label, (attention_mask, output_dict)
+
+class _CaptumSubModel(torch.nn.Module):
+
+    def __init__(self, model: DistilBertForSequenceClassification):
+        super().__init__()
+        self.model = model
+
+    @overrides
+    def forward(self,
+        embedded_tokens: torch.Tensor,
+        attention_mask: torch.Tensor,
+        output_dict: JsonDict
+    ):
+        return self.model.forward_inner(
+            embedded_tokens=embedded_tokens,
+            attention_mask=attention_mask,
+            output_attentions=True,
+            output_dict=output_dict
+        )
