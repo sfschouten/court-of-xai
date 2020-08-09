@@ -1,21 +1,18 @@
 """
-Bahdanau et al. 2015 (arXiv 1409.0473) additive attention modules
+Scaled, multiplicative attention module per Luong et al. 2015 (arXiv 1508.04025) and Vaswani et al. 2017 (arXiv 1706.03762)
 """
-
-# pylint: disable=E1101
-# pylint incorrectly identifies some types as tuples
-
 import torch
 import torch.nn as nn
 
-from ane_research.models.modules.attention.attention import Attention
+from ane_research.models.modules.attention import Attention
 from ane_research.models.modules.attention.activations import AttentionActivationFunction
 
 
-@Attention.register('additive_basic')
-class AdditiveAttentionBasic(Attention):
+@Attention.register('scaled_multiplicative')
+class ScaledMultiplicativeAttention(Attention):
     """
-    Query-less additive attention module variant as described by Bahdanau et al. 2015 (arXiv 1409.0473)
+    Query-less scaled, multiplicative attention module variant as described by Luong et al. 2015 (arXiv 1508.04025)
+    and Vaswani et al. 2017 (arXiv 1706.03762).
     Calculates a weight distribution with a feedforward alignment model operating exclusively on a key vector
 
     Parameters:
@@ -27,9 +24,8 @@ class AdditiveAttentionBasic(Attention):
     def __init__(self, hidden_size: int, activation_function: AttentionActivationFunction):
         super().__init__()
         self.activation = activation_function
-        self.num_intermediate_features = hidden_size // 2
-        self.alignment_layer1 = nn.Linear(hidden_size, self.num_intermediate_features)
-        self.alignment_layer2 = nn.Linear(self.num_intermediate_features, 1, bias=False)
+        self.alignment_model = nn.Linear(hidden_size, 1, bias=False)
+        self.hidden_size = hidden_size
 
     def forward(self, key: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
         """Compute a weight distribution on the input sequence, (hopefully) assigning higher values to more relevant elements.
@@ -44,16 +40,18 @@ class AdditiveAttentionBasic(Attention):
             torch.Tensor: (Batch x Sequence Length)
                 Attention scores
         """
-        layer1 = nn.Tanh()(self.alignment_layer1(key))
-        layer2 = self.alignment_layer2(layer1).squeeze(-1)
-        scores = self.activation(layer2, mask)
+        transformed = self.alignment_model(key) / (self.hidden_size)**0.5
+        transformed = transformed.squeeze(-1)
+        scores = self.activation_function(transformed, mask)
 
         return scores
 
-@Attention.register('additive_query')
-class AdditiveAttentionQuery(Attention):
+
+@Attention.register('scaled_multiplicative_query')
+class ScaledMultiplicativeAttentionQuery(Attention):
     """
-    Full additive attention module variant as described by Bahdanau et al. 2015 (arXiv 1409.0473)
+    Full scaled, multiplicative attention module variant as described by Luong et al. 2015 (arXiv 1508.04025)
+    and Vaswani et al. 2017 (arXiv 1706.03762).
     Calculates a weight distribution with a feedforward alignment model operating on key and query vectors
 
     Parameters:
@@ -65,10 +63,8 @@ class AdditiveAttentionQuery(Attention):
     def __init__(self, hidden_size: int, activation_function: AttentionActivationFunction):
         super().__init__()
         self.activation = activation_function
-        self.num_intermediate_features = hidden_size // 2
-        self.alignment_layer1_k = nn.Linear(hidden_size, self.num_intermediate_features)
-        self.alignment_layer1_q = nn.Linear(hidden_size, self.num_intermediate_features)
-        self.alignment_layer2 = nn.Linear(self.num_intermediate_features, 1, bias=False)
+        self.alignment_model = nn.Linear(hidden_size, 1, bias=False)
+        self.hidden_size = hidden_size
 
     def forward(self, key: torch.Tensor, query: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
         """Compute a weight distribution on the input sequence, (hopefully) assigning higher values to more relevant elements.
@@ -85,8 +81,10 @@ class AdditiveAttentionQuery(Attention):
             torch.Tensor: (Batch x Sequence Length)
                 Attention scores
         """
-        layer1 = nn.Tanh()(self.alignment_layer1_k(key) + self.alignment_layer1_q(query).unsqueeze(1))
-        layer2 = self.alignment_layer2(layer1).squeeze(-1)
-        scores = self.activation(layer2, mask)
+
+
+        transformed = torch.bmm(key, query.unsqueeze(-1)) / self.hidden_size**0.5
+        transformed = transformed.squeeze(-1)
+        scores = self.activation_function(transformed, mask)
 
         return scores

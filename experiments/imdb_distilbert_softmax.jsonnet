@@ -3,7 +3,7 @@ local batch_size = 64;
 {
   "dataset_reader": {
     "type": "imdb_csv",
-    "max_review_length": 100,
+    "max_review_length": 50,
     "pretrained_tokenizer": "distilbert-base-uncased"
   },
   "train_data_path": std.join("/", [std.extVar("PWD"), "ane_research/datasets/IMDB/train.csv"]),
@@ -16,6 +16,7 @@ local batch_size = 64;
     "ffn_activation": "gelu",
     "attention_activation": "softmax",
     "attention_dropout": 0.2,
+    "attention_type": "norm",
     "num_labels": 2,
     "seq_classif_dropout": 0.1
   },
@@ -26,7 +27,7 @@ local batch_size = 64;
     }
   },
   "trainer": {
-    "num_epochs": 10,
+    "num_epochs": 1,
     "patience": 5,
     "cuda_device": -1,
     "validation_metric": "+accuracy",

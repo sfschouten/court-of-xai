@@ -37,9 +37,11 @@ local batch_size = 64;
       "activations": ["linear"]
     },
     "attention": {
-      "type": "additive_tanh",
+      "type": "additive_basic",
       "hidden_size": encoder_hidden_size * 2,
-      "activation_function": "softmax" 
+      "activation_function": {
+        "type": "softmax"
+      }
     }
   },
   "data_loader": {
