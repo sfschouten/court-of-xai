@@ -98,7 +98,7 @@ class MultiHeadSelfAttention(Attention):
         scores = torch.matmul(q, k.transpose(2, 3))  # (bs, n_heads, q_length, k_length)
         mask = (mask == 0).view(mask_reshp).expand_as(scores)  # (bs, n_heads, q_length, k_length)
 
-        weights = self.activation(scores, mask)  # (bs, n_heads, q_length, k_length)
+        weights = self.activation(scores, mask, invert_mask=False)  # (bs, n_heads, q_length, k_length)
         weights = self.dropout(weights)  # (bs, n_heads, q_length, k_length)
 
         if head_mask is not None:

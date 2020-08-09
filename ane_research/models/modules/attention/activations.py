@@ -19,7 +19,7 @@ class AttentionActivationFunction(nn.Module, Registrable):
 @AttentionActivationFunction.register("softmax")
 class SoftmaxActivation(AttentionActivationFunction):
     @overrides
-    def forward(self, scores: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
+    def forward(self, scores: torch.Tensor, mask: torch.Tensor, invert_mask: bool = True) -> torch.Tensor:
         """Map a score vector to a dense probability distribution
 
         Args:
@@ -27,18 +27,23 @@ class SoftmaxActivation(AttentionActivationFunction):
                 Attention scores (also referred to as weights)
             mask (torch.Tensor): (Batch x Sequence Length)
                 Specifies which indices are just padding
+            invert_mask (bool)
+                PyTorch fills in things with a mask value of 1, AllenNLP modules expect the opposite
 
         Returns:
             torch.Tensor: Dense distribution
         """
-        masked_scores = replace_masked_values(scores, mask, -float("inf"))
+        if invert_mask:
+            masked_scores = replace_masked_values(scores, mask, -float("inf"))
+        else:
+            masked_scores = scores.masked_fill(mask, -float("inf"))
         return torch.nn.Softmax(dim=-1)(scores)
 
 
 @AttentionActivationFunction.register("sparsemax")
 class SparsemaxActivation(AttentionActivationFunction):
     @overrides
-    def forward(self, scores: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
+    def forward(self, scores: torch.Tensor, mask: torch.Tensor, invert_mask: bool = True) -> torch.Tensor:
         """Map a score vector to a sparse probability distribution
 
         Args:
@@ -46,18 +51,23 @@ class SparsemaxActivation(AttentionActivationFunction):
                 Attention scores (also referred to as weights)
             mask (torch.Tensor): (Batch x Sequence Length)
                 Specifies which indices are just padding
+            invert_mask (bool)
+                PyTorch fills in things with a mask value of 1, AllenNLP modules expect the opposite
 
         Returns:
             torch.Tensor: Sparse distribution
         """
-        masked_scores = replace_masked_values(scores, mask, -float("inf"))
+        if invert_mask:
+            masked_scores = replace_masked_values(scores, mask, -float("inf"))
+        else:
+            masked_scores = scores.masked_fill(mask, -float("inf"))
         return sparsemax(masked_scores, dim=-1)
 
 
 @AttentionActivationFunction.register("entmax15")
 class Entmax15Activation(AttentionActivationFunction):
     @overrides
-    def forward(self, scores: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
+    def forward(self, scores: torch.Tensor, mask: torch.Tensor, invert_mask: bool = True) -> torch.Tensor:
         """Map a score vector to a probability distribution halfway between softmax and sparsemax
 
         Args:
@@ -65,9 +75,14 @@ class Entmax15Activation(AttentionActivationFunction):
                 Attention scores (also referred to as weights)
             mask (torch.Tensor): (Batch x Sequence Length)
                 Specifies which indices are just padding
+            invert_mask (bool)
+                PyTorch fills in things with a mask value of 1, AllenNLP modules expect the opposite
 
         Returns:
             torch.Tensor: Distribution halfway between softmax and sparsemax
         """
-        masked_scores = replace_masked_values(scores, mask, -float("inf"))
+        if invert_mask:
+            masked_scores = replace_masked_values(scores, mask, -float("inf"))
+        else:
+            masked_scores = scores.masked_fill(mask, -float("inf"))
         return entmax15(masked_scores, dim=-1)
