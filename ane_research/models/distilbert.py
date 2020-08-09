@@ -40,7 +40,7 @@ class DistilBertEncoder(torch.nn.Module, FromParams):
             n_heads = 6,
             dim = 768,
             activation_function = SoftmaxActivation(),
-            attention_dropout = 0.2
+            dropout = 0.2
         )
     ):
         super().__init__()
@@ -147,7 +147,7 @@ class DistilBertForSequenceClassification(Model, CaptumCompatible):
         vocab: Vocabulary,
         model_name: str,
         ffn_activation: str,
-        ffn_dropout: str,
+        ffn_dropout: float,
         attention: Attention,
         num_labels: int,
         seq_classif_dropout: float
@@ -192,11 +192,11 @@ class DistilBertForSequenceClassification(Model, CaptumCompatible):
 
         hidden_state = encoder_output[0]  # (bs, seq_len, dim)
         pooled_output = hidden_state[:, 0]  # (bs, dim)
+
         pooled_output = self.pre_classifier(pooled_output)  # (bs, dim)
         pooled_output = nn.ReLU()(pooled_output)  # (bs, dim)
         pooled_output = self.dropout(pooled_output)  # (bs, dim)
         logits = self.classifier(pooled_output)  # (bs, dim)
-
         output_dict["logits"] = logits
 
         if output_attentions:

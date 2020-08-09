@@ -19,7 +19,7 @@ class AttentionActivationFunction(nn.Module, Registrable):
 @AttentionActivationFunction.register("softmax")
 class SoftmaxActivation(AttentionActivationFunction):
     @overrides
-    def forward(self, scores: torch.Tensor, mask: torch.Tensor):
+    def forward(self, scores: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
         """Map a score vector to a dense probability distribution
 
         Args:
@@ -32,13 +32,13 @@ class SoftmaxActivation(AttentionActivationFunction):
             torch.Tensor: Dense distribution
         """
         masked_scores = replace_masked_values(scores, mask, -float("inf"))
-        return torch.nn.Softmax(dim=-1)(masked_scores)
+        return torch.nn.Softmax(dim=-1)(scores)
 
 
 @AttentionActivationFunction.register("sparsemax")
 class SparsemaxActivation(AttentionActivationFunction):
     @overrides
-    def forward(self, scores: torch.Tensor, mask: torch.Tensor):
+    def forward(self, scores: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
         """Map a score vector to a sparse probability distribution
 
         Args:
@@ -57,7 +57,7 @@ class SparsemaxActivation(AttentionActivationFunction):
 @AttentionActivationFunction.register("entmax15")
 class Entmax15Activation(AttentionActivationFunction):
     @overrides
-    def forward(self, scores: torch.Tensor, mask: torch.Tensor):
+    def forward(self, scores: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
         """Map a score vector to a probability distribution halfway between softmax and sparsemax
 
         Args:

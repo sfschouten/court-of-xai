@@ -99,7 +99,7 @@ class TransformerBlock(nn.Module):
         dim: int,
         hidden_dim: int,
         ffn_activation: str,
-        ffn_dropout: str,
+        ffn_dropout: float,
         attention: Attention
     ):
         super().__init__()

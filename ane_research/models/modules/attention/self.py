@@ -15,7 +15,7 @@ from ane_research.models.modules.attention.activations import AttentionActivatio
 class MultiHeadSelfAttention(Attention):
     """Multi-head attention allows the model to jointly attend to information from different representation
        subspaces at different positions (Vaswani et al. 2017)."""
-    def __init__(self, n_heads: int, dim: int, activation_function: AttentionActivationFunction, attention_dropout: float):
+    def __init__(self, n_heads: int, dim: int, activation_function: AttentionActivationFunction, dropout: float):
         super().__init__()
 
         self.n_heads = n_heads
@@ -23,7 +23,7 @@ class MultiHeadSelfAttention(Attention):
 
         self.activation = activation_function
 
-        self.dropout = nn.Dropout(p=attention_dropout)
+        self.dropout = nn.Dropout(p=dropout)
 
         assert self.dim % self.n_heads == 0
 
@@ -98,8 +98,7 @@ class MultiHeadSelfAttention(Attention):
         scores = torch.matmul(q, k.transpose(2, 3))  # (bs, n_heads, q_length, k_length)
         mask = (mask == 0).view(mask_reshp).expand_as(scores)  # (bs, n_heads, q_length, k_length)
 
-        scores.masked_fill_(mask, -float("inf"))  # (bs, n_heads, q_length, k_length)
-        weights = self.activation(scores)  # (bs, n_heads, q_length, k_length)
+        weights = self.activation(scores, mask)  # (bs, n_heads, q_length, k_length)
         weights = self.dropout(weights)  # (bs, n_heads, q_length, k_length)
 
         if head_mask is not None:
