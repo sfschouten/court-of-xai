@@ -42,7 +42,7 @@ class ScaledMultiplicativeAttention(Attention):
         """
         transformed = self.alignment_model(key) / (self.hidden_size)**0.5
         transformed = transformed.squeeze(-1)
-        scores = self.activation_function(transformed, mask)
+        scores = self.activation(transformed, mask)
 
         return scores
 
@@ -85,6 +85,6 @@ class ScaledMultiplicativeAttentionQuery(Attention):
 
         transformed = torch.bmm(key, query.unsqueeze(-1)) / self.hidden_size**0.5
         transformed = transformed.squeeze(-1)
-        scores = self.activation_function(transformed, mask)
+        scores = self.activation(transformed, mask)
 
         return scores
