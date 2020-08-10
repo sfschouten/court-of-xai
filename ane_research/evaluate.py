@@ -152,8 +152,6 @@ class Evaluator():
           # (e.g. for pair-sequence classification there would be 2).
           score1 = np.concatenate(scoresets1)
           score2 = np.concatenate(scoresets2)
-          print(score1)
-          print(score2)
 
           if len(score1) != len(score2):
               self.logger.error(f"List of scores for {key1} and {key2} were not equal length! ({len(score1)}) vs. ({len(score2)})")
