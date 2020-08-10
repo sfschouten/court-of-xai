@@ -37,19 +37,35 @@ class CaptumAttribution(Registrable):
 
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", category=UserWarning)
-            attributions, = self.attribute(**kwargs)
+            tensors = self.attribute(**kwargs)
 
-        batch_size, _, _ = attributions.shape
+        field_names = model.get_field_names()
 
         # sum out the embedding dimensions to get token importance
-        token_attr = attributions.sum(dim=-1).abs()
+        attributions = {}
+        for field, tensor in zip(field_names, tensors):
+            attribtuions[field] = tensor.sum(dim=-1).abs()
+            batch_size, _, _ = tensor.shape
+
 
         for idx, instance in zip(range(batch_size), labeled_instances):
-            sequence_length = len(instance['tokens'])
-            explanation = token_attr[idx].tolist()[:sequence_length]
-            instances_with_captum_attr[f'instance_{idx+1}'] = { "dlshap_scores" : explanation }
+            explanation = []
+            for field, token_attr in attributions.items():
+                sequence_length = len(instance[field])
+                explanation.extend(token_attr[idx].tolist()[:sequence_length])
+
+            # the attributions to the tokens in the (various) fields of the instance are 
+            # concateneted in the order that they are returned by the captum_sub_model's forward
+            # this should be the same order as returned by get_field_names
+            instances_with_captum_attr[f'instance_{idx+1}'] = { f"{self.id()}_scores" : explanation }
 
         return sanitize(instances_with_captum_attr)
+
+    def id(self):
+        """
+        Returns a short identifier for the type of attribution calculated in this class.
+        """
+        raise NotImplementedError()
 
     def attribute_kwargs(self, captum_inputs):
         """
@@ -89,6 +105,11 @@ class CaptumCompatible():
         """
         raise NotImplementedError()
 
+    def get_field_names(self) -> Iterable[str]:
+        """
+        """
+        raise NotImplementedError()
+
 
 @SaliencyInterpreter.register('captum')
 class CaptumInterpreter(SaliencyInterpreter):
@@ -116,6 +137,8 @@ class CaptumDeepLiftShap(CaptumAttribution, DeepLiftShap):
         self.submodel = self.predictor._model.captum_sub_model()
         DeepLiftShap.__init__(self, self.submodel)
 
+    def id(self):
+        return 'dlshap'
 
     def attribute_kwargs(self, captum_inputs):
         inputs, target, additional = captum_inputs
@@ -138,6 +161,8 @@ class CaptumGradientShap(CaptumAttribution, GradientShap):
         self.submodel = self.predictor._model.captum_sub_model()
         GradientShap.__init__(self, self.submodel)
 
+    def id(self):
+        return 'gradshap'
 
     def attribute_kwargs(self, captum_inputs):
         inputs, target, additional = captum_inputs

@@ -11,6 +11,11 @@
 - Michael J. Neely
 - Stefan F. Schouten
 
+## Datasets
+- SNLI (https://nlp.stanford.edu/projects/snli/)
+- IMDb
+- SST-2
+
 ## Setup
 
 Prepare a Python virtual environment and install the necessary packages.

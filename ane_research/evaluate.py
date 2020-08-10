@@ -9,6 +9,7 @@ from allennlp.models import Model
 from allennlp.models.archival import load_archive
 from allennlp.predictors import Predictor
 from allennlp.nn import util
+from allennlp.data.fields import TextField
 
 import numpy as np
 import pandas as pd
@@ -112,7 +113,7 @@ class Evaluator():
       self.calculate_correlations()
 
   def _calculate_average_datapoint_length(self):
-    num_tokens_per_datapoint = [len(instance.fields['tokens']) for instance in self.test_instances]
+    num_tokens_per_datapoint = [ sum( len(field) for field in instance.fields if isinstance(field, TextField) ) for instance in self.test_instances ] 
     return math.floor(np.mean(num_tokens_per_datapoint))
 
   def calculate_feature_importance_measures(self):
@@ -135,7 +136,6 @@ class Evaluator():
   def calculate_correlations(self):
     # Calculate kendalltau, kendall_tau_top_k_non_zero, and kendall_tau_top_k_average_length for each datapoint
     for i in tqdm(range(len(self.test_instances))):
-      L = len(self.test_instances[i].fields['tokens']) # sequence length
       
       label = self.labels[i]
       class_name = self.class_idx2names[int(label)]
@@ -144,7 +144,7 @@ class Evaluator():
         score2 = scoreset2[f'instance_{i+1}']
 
         if len(score1) != len(score2):
-            self.logger.error(f"List of scores for {key1} and {key2} were not equal length!")
+            self.logger.error(f"List of scores for {key1} and {key2} were not equal length! ({len(score1)}) vs. ({len(score2)})")
             self.logger.debug(f"Relevant instance: {self.test_instances[i]}")
             continue
 
