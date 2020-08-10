@@ -96,7 +96,7 @@ class Evaluator():
     # self.interpreters['loo']  = LeaveOneOut(self.predictor)
     self.interpreters['attn'] = AttentionInterpreter(self.predictor)
     # self.interpreters['grad'] = SimpleGradient(self.predictor)
-    self.interpreters['intgrad'] = IntegratedGradient(self.predictor)
+    # self.interpreters['intgrad'] = IntegratedGradient(self.predictor)
 
     self.salience_scores = {}
 

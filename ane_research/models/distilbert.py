@@ -4,7 +4,7 @@
 # '''
 from copy import deepcopy
 import math
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Iterable
 
 from allennlp.data.batch import Batch
 from allennlp.common import FromParams, JsonDict
@@ -267,6 +267,11 @@ class DistilBertForSequenceClassification(Model, CaptumCompatible):
     @overrides
     def captum_sub_model(self):
         return _CaptumSubModel(self)
+
+    @overrides
+    def get_field_names(self) -> Iterable[str]:
+        # We already assume a field called tokens in forward, so we do so here too.
+        return ('tokens',)
 
     @overrides
     def instances_to_captum_inputs(self, labeled_instances):
