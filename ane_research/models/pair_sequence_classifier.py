@@ -30,36 +30,28 @@ class PairSequenceClassifier(Model, CaptumCompatible):
     self.decoder = decoder
     self.metrics = {
       'accuracy': CategoricalAccuracy(),
-      #'f1_measure': F1Measure(positive_label=1),
-      #'auc': Auc(positive_label=1)
     }
     self.loss = torch.nn.CrossEntropyLoss()
 
     #TODO check for appropriate dimensions.
 
-    self.field_names = field_names #('premise', 'hypothesis')
+    self.field_names = field_names 
 
   def forward_inner(self, embedded1, embedded2, mask1, mask2, label, output_dict):
 
     encoded1 = self.encoder(embedded1, mask1)
     encoded2 = self.encoder(embedded2, mask2)
 
-    #output_dict['attention'] = []
-
-    
     def compute_attention(encoded_tokens, tokens_mask):
         attention = self.attention(encoded_tokens, tokens_mask)
-        #output_dict['attention'].extend(attention.tolist())
         context = (attention.unsqueeze(-1) * encoded_tokens).sum(1)
         return context, attention
 
-    # TODO don't do this, just add the attention of both sequences separately
-    # and probably make the model, rather than the predictor responsible for 
-    # returning attention, for attention-based saliency.
     context1, attn1 = compute_attention(encoded1, mask1)
-    context2, attn2  = compute_attention(encoded2, mask2)
+    context2, attn2 = compute_attention(encoded2, mask2)
 
-    output_dict['attention'] = torch.cat((attn1, attn2), dim=-1)
+    output_dict['attention1'] = attn1.tolist()
+    output_dict['attention2'] = attn2.tolist()
     
     diff = (context1 - context2).abs()
     prod = context1 * context2
@@ -111,8 +103,6 @@ class PairSequenceClassifier(Model, CaptumCompatible):
       loss = self.loss(output_dict['logits'], label)
       output_dict['loss'] = loss
       self.metrics['accuracy'](class_probabilities, label)
-      #self.metrics['f1_measure'](class_probabilities, label)
-      #self.metrics['auc'](prediction.squeeze(-1), label)
 
     return output_dict
 
@@ -148,18 +138,12 @@ class PairSequenceClassifier(Model, CaptumCompatible):
       output_dict[f'{key1}_embedding'] = embedded_tokens1
       output_dict[f'{key2}_embedding'] = embedded_tokens2
 
-      return (embedded_tokens1, embedded_tokens2), (tokens_mask1, tokens_mask2, label, output_dict)
+      return (embedded_tokens1, embedded_tokens2), None, (tokens_mask1, tokens_mask2, label, output_dict)
 
   @overrides
   def get_metrics(self, reset: bool = False) -> Dict[str, float]:
-    # f1 get_metric returns (precision, recall, f1)
-    #precision, recall, f1_measure = self.metrics['f1_measure'].get_metric(reset=reset)
     return {
-      #'precision': precision,
-      #'recall': recall,
-      #'f1_measure': f1_measure,
       'accuracy': self.metrics['accuracy'].get_metric(reset=reset),
-      #'auc': self.metrics['auc'].get_metric(reset=reset)
     }
 
   @overrides

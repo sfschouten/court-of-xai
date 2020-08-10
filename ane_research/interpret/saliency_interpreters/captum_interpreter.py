@@ -44,20 +44,19 @@ class CaptumAttribution(Registrable):
         # sum out the embedding dimensions to get token importance
         attributions = {}
         for field, tensor in zip(field_names, tensors):
-            attribtuions[field] = tensor.sum(dim=-1).abs()
+            attributions[field] = tensor.sum(dim=-1).abs()
             batch_size, _, _ = tensor.shape
 
 
         for idx, instance in zip(range(batch_size), labeled_instances):
-            explanation = []
-            for field, token_attr in attributions.items():
+            instances_with_captum_attr[f'instance_{idx+1}'] = { }
+            # AllenNLP SaliencyInterpreters index the input sequences in reverse order.
+            for field_idx, (field, token_attr) in enumerate(reversed(list(attributions.items()))):
                 sequence_length = len(instance[field])
-                explanation.extend(token_attr[idx].tolist()[:sequence_length])
+                explanation = token_attr[idx].tolist()[:sequence_length]
 
-            # the attributions to the tokens in the (various) fields of the instance are 
-            # concateneted in the order that they are returned by the captum_sub_model's forward
-            # this should be the same order as returned by get_field_names
-            instances_with_captum_attr[f'instance_{idx+1}'] = { f"{self.id()}_scores" : explanation }
+                # this should be the same order as returned by get_field_names
+                instances_with_captum_attr[f'instance_{idx+1}'][f"{self.id()}_scores_{field_idx}"] = explanation
 
         return sanitize(instances_with_captum_attr)
 

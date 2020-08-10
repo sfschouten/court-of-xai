@@ -1,5 +1,3 @@
-'''AllenNLP Predictor class for the Jain Wallace Attention Binary Classification model'''
-
 from copy import deepcopy
 from overrides import overrides
 import numpy as np
@@ -15,18 +13,19 @@ from allennlp.predictors.predictor import Predictor
 
 from ..interpret.saliency_interpreters.attention_interpreter import AttentionModelPredictor
 
-@Predictor.register('jain_wallace_attention_binary_classifier')
-class JWAEDPredictor(Predictor, AttentionModelPredictor):
-  '''Predictor wrapper for the Jain Wallace Attention Binary Classification model'''
+@Predictor.register('pair_sequence_classifier')
+class PairSequencePredictor(Predictor, AttentionModelPredictor):
 
   @overrides
   def _json_to_instance(self, json_dict: JsonDict) -> Instance:
-    sentence = json_dict['sentence']
+    sentence1 = json_dict['sentence1']
+    sentence2 = json_dict['sentence2']
 
     # Assuming it's already tokenized.
-    tokens = sentence.split()
+    tokens1 = sentence1.split()
+    tokens2 = sentence2.split()
 
-    instance = self._dataset_reader.text_to_instance(tokens=tokens)
+    instance = self._dataset_reader.text_to_instance(tokens1, tokens2)
     return instance
 
   @overrides
@@ -50,6 +49,11 @@ class JWAEDPredictor(Predictor, AttentionModelPredictor):
 
   def get_attention_based_salience_for_instance(self, labeled_instance: Instance):
     output = self.predict_instance(labeled_instance)
-    return { 'tokens' : output['attention'] } 
+
+    attention1 = output['attention1']
+    attention2 = output['attention2']
+   
+    fields = self._model.field_names
+    return { fields[0] : attention1, fields[1] : attention2 }
 
 
