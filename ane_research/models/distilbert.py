@@ -22,6 +22,9 @@ from transformers.modeling_utils import PreTrainedModel
 
 from ane_research.interpret.saliency_interpreters.captum_interpreter import CaptumCompatible
 from ane_research.models.modules.architectures.transformer import Transformer, Embeddings
+from ane_research.models.modules.attention.activations import SoftmaxActivation
+from ane_research.models.modules.attention.attention import Attention
+from ane_research.models.modules.attention.self import MultiHeadSelfAttention
 
 
 class DistilBertEncoder(torch.nn.Module, FromParams):
@@ -32,8 +35,13 @@ class DistilBertEncoder(torch.nn.Module, FromParams):
         dim: int = 768,
         hidden_dim: int = 4*768,
         ffn_activation: str = "gelu",
-        attention_activation: str = "softmax",
-        attention_dropout: float = 0.2
+        ffn_dropout: float = 0.2,
+        attention: Attention = MultiHeadSelfAttention(
+            n_heads = 6,
+            dim = 768,
+            activation_function = SoftmaxActivation(),
+            dropout = 0.2
+        )
     ):
         super().__init__()
         self.n_layers=n_layers
@@ -41,8 +49,8 @@ class DistilBertEncoder(torch.nn.Module, FromParams):
         self.dim = dim
         self.hidden_dim = hidden_dim
         self.ffn_activation = ffn_activation
-        self.attention_activation = attention_activation
-        self.attention_dropout =  attention_dropout
+        self.ffn_dropout = ffn_dropout
+        self.attention=attention
 
         self.transformer = Transformer(
             n_layers=self.n_layers,
@@ -50,15 +58,16 @@ class DistilBertEncoder(torch.nn.Module, FromParams):
             dim=self.dim,
             hidden_dim=self.hidden_dim,
             ffn_activation=self.ffn_activation,
-            attention_activation=self.attention_activation,
-            attention_dropout=self.attention_dropout)
+            ffn_dropout=self.ffn_dropout,
+            attention=self.attention
+        )
 
     @classmethod
     def from_huggingface_model(cls,
         model: PreTrainedModel,
         ffn_activation: str,
-        attention_activation: str,
-        attention_dropout: float
+        ffn_dropout: float,
+        attention: Attention
     ):
         config = model.config
         encoder = cls(
@@ -67,8 +76,8 @@ class DistilBertEncoder(torch.nn.Module, FromParams):
             dim=config.dim,
             hidden_dim=config.hidden_dim,
             ffn_activation=ffn_activation,
-            attention_activation=attention_activation,
-            attention_dropout=attention_dropout
+            ffn_dropout=ffn_dropout,
+            attention=attention
         )
         # After creating the encoder, we copy weights over from the transformer.  This currently
         # requires that the internal structure of the text side of this encoder *exactly matches*
@@ -138,8 +147,8 @@ class DistilBertForSequenceClassification(Model, CaptumCompatible):
         vocab: Vocabulary,
         model_name: str,
         ffn_activation: str,
-        attention_activation: str,
-        attention_dropout: float,
+        ffn_dropout: float,
+        attention: Attention,
         num_labels: int,
         seq_classif_dropout: float
     ):
@@ -148,8 +157,8 @@ class DistilBertForSequenceClassification(Model, CaptumCompatible):
         encoder = DistilBertEncoder.from_huggingface_model(
             model=transformer,
             ffn_activation=ffn_activation,
-            attention_dropout=attention_dropout,
-            attention_activation=attention_activation
+            ffn_dropout=ffn_dropout,
+            attention=attention
         )
         return cls(
             vocab=vocab,
@@ -183,11 +192,11 @@ class DistilBertForSequenceClassification(Model, CaptumCompatible):
 
         hidden_state = encoder_output[0]  # (bs, seq_len, dim)
         pooled_output = hidden_state[:, 0]  # (bs, dim)
+
         pooled_output = self.pre_classifier(pooled_output)  # (bs, dim)
         pooled_output = nn.ReLU()(pooled_output)  # (bs, dim)
         pooled_output = self.dropout(pooled_output)  # (bs, dim)
         logits = self.classifier(pooled_output)  # (bs, dim)
-
         output_dict["logits"] = logits
 
         if output_attentions:
