@@ -56,4 +56,6 @@ class DistilBertForSequenceClassificationPredictor(Predictor, AttentionModelPred
         attention_weights = np.average(attention_weights, axis=0)
         # collapse to 1D
         attention_weights = np.max(attention_weights, axis=0)
-        return attention_weights
+    
+        return { 'tokens' : attention_weights } 
+        

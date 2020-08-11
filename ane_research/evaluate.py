@@ -11,6 +11,7 @@ from allennlp.models import Model
 from allennlp.models.archival import load_archive
 from allennlp.predictors import Predictor
 from allennlp.nn import util
+from allennlp.data.fields import TextField
 
 import numpy as np
 import pandas as pd
@@ -79,11 +80,10 @@ class Evaluator():
     self.test_data_path = self.archive.config.params['test_data_path']
     self.test_instances = self.predictor._dataset_reader.read(self.test_data_path)
 
-    # TODO remove this, just to speed up debugging.
     random.seed(0)
     NR_INTERPRET_SAMPLES = 500
     subset = random.sample(list(self.test_instances), NR_INTERPRET_SAMPLES)
-    #subset = list(itertools.islice(self.test_instances, 100))
+    
     vocab = self.test_instances.vocab
     self.test_instances = AllennlpDataset(subset, vocab)
 
@@ -117,8 +117,9 @@ class Evaluator():
       self.calculate_correlations()
 
   def _calculate_average_datapoint_length(self):
-    num_tokens_per_datapoint = [len(instance.fields['tokens']) for instance in self.test_instances]
-    return math.floor(np.mean(num_tokens_per_datapoint))
+    num_tokens_per_datapoint = [ sum( len(field) for field_name, field in instance.fields.items() if isinstance(field, TextField) ) for instance in self.test_instances ]
+    mean = np.floor(np.mean(num_tokens_per_datapoint))
+    return int(mean)
 
   def calculate_feature_importance_measures(self):
     for key, interpreter in self.interpreters.items():
@@ -126,10 +127,9 @@ class Evaluator():
       self.salience_scores[key] = {}
       for instance_batch in tqdm(self.batched_test_instances):
         scores = interpreter.saliency_interpret_instances(instance_batch)
-        for val in scores.values():
-          # TODO: saliency_interpret_instances returns a dict with (hopefully one key). 
-          # We may need more complex logic here
-          self.salience_scores[key][f'instance_{next(counter)}'] = np.asarray(list(val.values())[0])
+        for field, val in scores.items():
+            scoresets = [ np.asarray(list(scoreset)) for _, scoreset in val.items()]
+            self.salience_scores[key][f'instance_{next(counter)}'] = scoresets 
 
     for instance_batch in self.batched_test_instances:
       batch_outputs = self.model.forward_on_instances(instance_batch)
@@ -138,30 +138,35 @@ class Evaluator():
       
 
   def calculate_correlations(self):
+    avg_length = self.average_datapoint_length
     non_zero_k = { (key1, key2) : [] for (key1,_), (key2,_) in itertools.combinations(self.salience_scores.items(), 2) }
 
     # Calculate kendalltau, kendall_tau_top_k_non_zero, and kendall_tau_top_k_average_length for each datapoint
     for i in tqdm(range(len(self.test_instances))):
-      L = len(self.test_instances[i].fields['tokens']) # sequence length
-      
       label = self.labels[i]
       class_name = self.class_idx2names[int(label)]
-      for (key1, scoreset1), (key2, scoreset2) in itertools.combinations(self.salience_scores.items(), 2):
-        score1 = scoreset1[f'instance_{i+1}']
-        score2 = scoreset2[f'instance_{i+1}']
 
-        if len(score1) != len(score2):
-            self.logger.error(f"List of scores for {key1} and {key2} were not equal length!")
-            self.logger.debug(f"Relevant instance: {self.test_instances[i]}")
-            continue
+      # iterate over all possible pairs of saliency interpreters
+      for (key1, scoresets1), (key2, scoresets2) in itertools.combinations(self.salience_scores.items(), 2):
 
-        self.correlations[(key1, key2)].calculate_kendall_tau_correlation(score1, score2, class_name=class_name)
+          # get the current instance's scores for current 2 interpreters
+          scoresets1 = scoresets1[f'instance_{i+1}']
+          scoresets2 = scoresets2[f'instance_{i+1}']
 
-        avg_length = self.average_datapoint_length
-        self.correlations[(key1, key2)].calculate_kendall_top_k_average_length_correlation(score1, score2, average_length=avg_length, p=0.5, class_name=class_name)
-        
-        _, k = self.correlations[(key1, key2)].calculate_kendall_top_k_non_zero_correlation(score1, score2, kIsNonZero=True, p=0.5, class_name=class_name)
-        non_zero_k[(key1, key2)].append(k)
+          # chain the scoresets (one for each TextField in the instances).
+          # (e.g. for pair-sequence classification there would be 2).
+          score1 = np.concatenate(scoresets1)
+          score2 = np.concatenate(scoresets2)
+
+          if len(score1) != len(score2):
+              self.logger.error(f"List of scores for {key1} and {key2} were not equal length! ({len(score1)}) vs. ({len(score2)})")
+              self.logger.debug(f"Relevant instance: {self.test_instances[i]}")
+              continue
+
+          self.correlations[(key1, key2)].calculate_kendall_tau_correlation(score1, score2, class_name=class_name)
+          self.correlations[(key1, key2)].calculate_kendall_top_k_average_length_correlation(score1, score2, average_length=avg_length, p=0.5, class_name=class_name)
+          _, k = self.correlations[(key1, key2)].calculate_kendall_top_k_non_zero_correlation(score1, score2, kIsNonZero=True, p=0.5, class_name=class_name)
+          non_zero_k[(key1, key2)].append(k)
     
       #TODO reimplement different k warnings.
 

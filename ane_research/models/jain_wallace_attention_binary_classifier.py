@@ -2,7 +2,7 @@
    https://arxiv.org/pdf/1902.10186.pdf
 '''
 
-from typing import Dict
+from typing import Dict, Iterable
 from overrides import overrides
 
 import numpy as np
@@ -86,6 +86,11 @@ class JWAED(Model, CaptumCompatible):
   @overrides
   def captum_sub_model(self):
     return _CaptumSubModel(self)
+
+  @overrides
+  def get_field_names(self) -> Iterable[str]:
+    # We already assume a field called tokens in forward, so we do so here too.
+    return ('tokens',)
 
   @overrides
   def instances_to_captum_inputs(self, labeled_instances):

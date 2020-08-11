@@ -1,1 +1,2 @@
 from ane_research.models.jain_wallace_attention_binary_classifier import JWAED
+from ane_research.models.pair_sequence_classifier import PairSequenceClassifier

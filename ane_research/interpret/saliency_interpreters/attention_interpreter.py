@@ -10,8 +10,12 @@ class AttentionModelPredictor():
     Interface for predictors with models that are to be interpreted through their attention mechanism.
     """
 
-    def get_attention_based_salience_for_instance(self, input_: Instance):
-        pass 
+    def get_attention_based_salience_for_instance(self, input_: Instance) -> Dict[str, Iterable[float]]:
+        """
+        Returns a dictionary with for each TextField in the instance, an iterable with the attention paid
+        to the tokens in that field.
+        """
+        raise NotImplementedError()
 
 
 @SaliencyInterpreter.register('attention-interpretator')
@@ -39,13 +43,12 @@ class AttentionInterpreter(SaliencyInterpreter):
         instances_with_attn = dict()
 
         for i_idx, instance in enumerate(labeled_instances):
-            # original_pred = self.predictor.predict_instance(instance)['prediction']
-           
             attn_scores = self.predictor.get_attention_based_salience_for_instance(instance)
             
-            instances_with_attn[f'instance_{i_idx+1}'] = {'attn_scores' : []}
-            for s_idx, score in enumerate(attn_scores):
-                instances_with_attn[f'instance_{i_idx+1}']['attn_scores'].append(score)
+            instances_with_attn[f'instance_{i_idx+1}'] = {}
+            # AllenNLP SaliencyInterpreters index the input sequences in reverse order.
+            for f_idx, field in enumerate(reversed(list(attn_scores.keys()))):
+                instances_with_attn[f'instance_{i_idx+1}'][f'attn_scores_{f_idx}'] = list(attn_scores[field])
 
         return sanitize(instances_with_attn)
  
