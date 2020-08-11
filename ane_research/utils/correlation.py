@@ -128,7 +128,7 @@ class Correlation():
       measures['mean'][class_name] = np.nanmean(correlation_values)
       measures['std'][class_name] = np.nanstd(correlation_values)
     total_p_values =  np.array(total_p_values)
-    measures['pval_sig'] = (total_p_values <= 0.05).sum() / len(total_p_values)
+    measures['pval_sig']['all_classes'] = (total_p_values <= 0.05).sum() / len(total_p_values)
     measures['mean']['all_classes'] = np.nanmean(self.data_store[CorrelationMeasures.KENDALL_TAU.value]['all_classes'])
     measures['std']['all_classes'] = np.nanstd(self.data_store[CorrelationMeasures.KENDALL_TAU.value]['all_classes'])
     return pd.DataFrame(measures)
