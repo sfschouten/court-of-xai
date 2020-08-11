@@ -36,7 +36,6 @@ local batch_size = 128;
   },
   "trainer": {
     "num_epochs": 2,
-    "cuda_device": -1,
     "validation_metric": "+accuracy",
     "optimizer": {
       "type": "huggingface_adamw",
