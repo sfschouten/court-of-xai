@@ -15,7 +15,7 @@ local batch_size = 128;
     "combine_input_fields" : true,
   },
   # temporarily using dev set for training, and test for validation and test.
-  "train_data_path": std.join("/", [std.extVar("PWD"), "ane_research/datasets/SNLI/snli_1.0_train.jsonl"]),
+  "train_data_path": std.join("/", [std.extVar("PWD"), "ane_research/datasets/SNLI/snli_1.0_dev.jsonl"]),
   "test_data_path": std.join("/", [std.extVar("PWD"), "ane_research/datasets/SNLI/snli_1.0_test.jsonl"]),
   "validation_data_path": std.join("/", [std.extVar("PWD"), "ane_research/datasets/SNLI/snli_1.0_dev.jsonl"]),
   "evaluate_on_test": true,
@@ -23,8 +23,16 @@ local batch_size = 128;
     "type": "distilbert_sequence_classification_from_huggingface",
     "model_name": "distilbert-base-uncased",
     "ffn_activation": "gelu",
-    "attention_activation": "softmax",
-    "attention_dropout": 0.2,
+    "ffn_dropout": 0.2,
+    "attention": {
+        "type": "multihead_self",
+        "n_heads": 12, 
+        "dim": 768,
+        "activation_function": {
+            "type": "softmax"
+        },
+        "dropout": 0.2
+    },
     "num_labels": 3,
     "seq_classif_dropout": 0.1
   },
