@@ -110,7 +110,9 @@ v-*/
 # AllenNLP outputs
 outputs/*
 
-
 # Vim files
 *~
 *.swp
+
+# datasets
+ane_research/datasets/
