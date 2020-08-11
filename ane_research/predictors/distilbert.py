@@ -34,6 +34,7 @@ class DistilBertForSequenceClassificationPredictor(Predictor, AttentionModelPred
         output = self.predict_instance(instance)
         return {
           'tokens': json_dict['tokens'],
+          'attention': output['attention'],
           'class_probabilities': output['class_probabilities'],
           'prediction': label_dict[int(np.argmax(output['class_probabilities']))],
           'actual': json_dict.get('sentiment')
@@ -46,7 +47,7 @@ class DistilBertForSequenceClassificationPredictor(Predictor, AttentionModelPred
         new_instance.add_field("label", LabelField(int(label)))
         return [new_instance]
 
-    def get_attention_based_salience_for_instance(self, labeled_instance: Instance):
+    def get_attention_based_salience_for_instance(self, labeled_instance: Instance) -> np.ndarray:
         output = self.predict_instance(labeled_instance)
         attention_weights = np.asarray(output['attention']) # (n_layers, n_heads, seq_length, seq_length)
         # average across layers

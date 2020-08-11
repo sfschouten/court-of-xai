@@ -57,9 +57,9 @@ single-line-class-stmt=no
 
 max-module-lines=1000
 
-indent-string='  '
+indent-string='    '
 
-indent-after-paren=2
+indent-after-paren=4
 
 expected-line-ending-format=LF
 
