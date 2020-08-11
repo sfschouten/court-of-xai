@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import os
+import argparse
 
 from ane_research.utils.experiments import get_most_recent_trained_model_paths
 from ane_research.evaluate import Evaluator
@@ -12,16 +13,19 @@ common_util.import_module_and_submodules(Config.package_name)
 common_util.import_module_and_submodules('allennlp_models')
 
 #######
+parser = argparse.ArgumentParser()
+parser.add_argument('experiment_keyword', type=str, default='')
+args = parser.parse_args()
+#######
 
 recent_models = get_most_recent_trained_model_paths()
 for idx, recent_model in enumerate(recent_models):
 
     _, recent_model_file = os.path.split(recent_model)
-    experiment_name, _ = os.path.splitext(recent_model_file)
+    experiment_id, experiment_name = os.path.splitext(recent_model_file)
 
-    #if 'pair_test' not in recent_model:
-    #if 'snli_distilbert' not in recent_model:
-    #    continue
+    if args.experiment_keyword not in recent_model:
+        continue
 
     recent_model += '/model.tar.gz'
 

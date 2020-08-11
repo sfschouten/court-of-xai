@@ -3,6 +3,8 @@ import logging
 import math
 import os
 import itertools
+import random 
+import statistics 
 from typing import List, Tuple
 
 from allennlp.models import Model
@@ -78,9 +80,12 @@ class Evaluator():
     self.test_instances = self.predictor._dataset_reader.read(self.test_data_path)
 
     # TODO remove this, just to speed up debugging.
-    # subset = list(itertools.islice(self.test_instances, 100))
-    # vocab = self.test_instances.vocab
-    # self.test_instances = AllennlpDataset(subset, vocab)
+    random.seed(0)
+    NR_INTERPRET_SAMPLES = 500
+    subset = random.sample(list(self.test_instances), NR_INTERPRET_SAMPLES)
+    #subset = list(itertools.islice(self.test_instances, 100))
+    vocab = self.test_instances.vocab
+    self.test_instances = AllennlpDataset(subset, vocab)
 
     self.batch_size = self.archive.config.params['data_loader']['batch_sampler']['batch_size']
     self.batched_test_instances = list(batch(self.test_instances, self.batch_size))
@@ -119,7 +124,7 @@ class Evaluator():
     for key, interpreter in self.interpreters.items():
       counter = iter(range(1, len(self.test_instances) + 1))
       self.salience_scores[key] = {}
-      for instance_batch in self.batched_test_instances:
+      for instance_batch in tqdm(self.batched_test_instances):
         scores = interpreter.saliency_interpret_instances(instance_batch)
         for val in scores.values():
           # TODO: saliency_interpret_instances returns a dict with (hopefully one key). 
@@ -133,6 +138,8 @@ class Evaluator():
       
 
   def calculate_correlations(self):
+    non_zero_k = { (key1, key2) : [] for (key1,_), (key2,_) in itertools.combinations(self.salience_scores.items(), 2) }
+
     # Calculate kendalltau, kendall_tau_top_k_non_zero, and kendall_tau_top_k_average_length for each datapoint
     for i in tqdm(range(len(self.test_instances))):
       L = len(self.test_instances[i].fields['tokens']) # sequence length
@@ -153,8 +160,9 @@ class Evaluator():
         avg_length = self.average_datapoint_length
         self.correlations[(key1, key2)].calculate_kendall_top_k_average_length_correlation(score1, score2, average_length=avg_length, p=0.5, class_name=class_name)
         
-        self.correlations[(key1, key2)].calculate_kendall_top_k_non_zero_correlation(score1, score2, kIsNonZero=True, p=0.5, class_name=class_name)
-        
+        _, k = self.correlations[(key1, key2)].calculate_kendall_top_k_non_zero_correlation(score1, score2, kIsNonZero=True, p=0.5, class_name=class_name)
+        non_zero_k[(key1, key2)].append(k)
+    
       #TODO reimplement different k warnings.
 
       # Important: 'apples to apples' comparison: ensure the correlation calculation between the gradient and feature erasure measures
@@ -164,6 +172,13 @@ class Evaluator():
       #_, k_fg = self.loo_gradient_correlation.calculate_kendall_top_k_non_zero_correlation(loo, gradients, k=k_af, kIsNonZero=False, class_name=class_name)
       #if k_fg != k_af:
       #  self.logger.warning(f'Used different k {k_fg}')
+
+    canon_key = next(iter(non_zero_k.keys()))
+    mean = statistics.mean(non_zero_k[canon_key])
+    stdev = statistics.stdev(non_zero_k[canon_key])
+    print(f'k-statistics (using {canon_key})')
+    print(f'mean: {mean}')
+    print(f'variance: {stdev}')
 
   def generate_and_save_correlation_data_frames(self):
     csvs = []
