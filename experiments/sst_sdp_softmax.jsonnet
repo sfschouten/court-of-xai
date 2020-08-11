@@ -53,7 +53,6 @@ local batch_size = 64;
     "trainer": {
         "num_epochs": 40,
         "patience": 5,
-        "cuda_device": -1,
         "validation_metric": "+auc",
         "optimizer": {
             "type": "adam",

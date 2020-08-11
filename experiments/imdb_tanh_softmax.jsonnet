@@ -5,7 +5,7 @@ local batch_size = 64;
 {
     "dataset_reader": {
         "type": "imdb_csv",
-        "max_review_length": 100
+        "max_review_length": 512
     },
     "train_data_path": std.join("/", [std.extVar("PWD"), "ane_research/datasets/IMDB/train.csv"]),
     "test_data_path": std.join("/", [std.extVar("PWD"), "ane_research/datasets/IMDB/test.csv"]),
@@ -53,7 +53,6 @@ local batch_size = 64;
     "trainer": {
         "num_epochs": 40,
         "patience": 5,
-        "cuda_device": -1,
         "validation_metric": "+auc",
         "optimizer": {
             "type": "adam",
