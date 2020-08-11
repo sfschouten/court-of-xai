@@ -68,7 +68,7 @@ class PairSequenceClassifier(Model, CaptumCompatible):
     B, = label.shape
     label2 = label.unsqueeze(-1).expand(B, nr_classes)
     
-    mask = torch.arange(nr_classes).unsqueeze(0).expand(*probs.shape) == label2
+    mask = torch.arange(nr_classes, device=logits.device).unsqueeze(0).expand(*probs.shape) == label2
     preds = probs[mask]
     return preds
 

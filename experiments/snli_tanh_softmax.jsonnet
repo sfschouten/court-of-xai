@@ -39,7 +39,7 @@ local batch_size = 64;
       "type": "additive_basic",
       "hidden_size": encoder_hidden_size * 2,
       "activation_function": {
-        "type": "sparsemax"
+        "type": "softmax"
       }
     },
     "field_names": ["premise", "hypothesis"],
