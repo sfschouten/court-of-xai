@@ -81,7 +81,7 @@ class Evaluator():
         self.test_instances = self.predictor._dataset_reader.read(self.test_data_path)
 
         random.seed(0)
-        NR_INTERPRET_SAMPLES = 500
+        NR_INTERPRET_SAMPLES = 50
         subset = random.sample(list(self.test_instances), NR_INTERPRET_SAMPLES)
     
         vocab = self.test_instances.vocab
@@ -96,7 +96,7 @@ class Evaluator():
         #TODO replace the following by a constructor parameter
         # self.interpreters['dl_shap'] = CaptumInterpreter(self.predictor, CaptumDeepLiftShap(self.predictor))
         self.interpreters['g_shap'] = CaptumInterpreter(self.predictor, CaptumGradientShap(self.predictor))
-        # self.interpreters['lime'] = LimeInterpreter(self.predictor)
+        self.interpreters['lime'] = LimeInterpreter(self.predictor)
         # self.interpreters['loo']  = LeaveOneOut(self.predictor)
         self.interpreters['attn'] = AttentionInterpreter(self.predictor)
         # self.interpreters['grad'] = SimpleGradient(self.predictor)
@@ -113,8 +113,21 @@ class Evaluator():
             self.correlations[(key1, key2)] = Correlation(key1, key2, list(set(self.class_idx2names.values())))
 
         if self.precalculate:
+            self.add_prediction_labels_to_testset()
             self.calculate_feature_importance_measures()
             self.calculate_correlations()
+
+    def add_prediction_labels_to_testset(self):
+        for b_idx, batch in tqdm(enumerate(self.batched_test_instances)):
+            batch_outputs = self.predictor._model.forward_on_instances(batch)
+
+            labeled_instances = []
+            for instance, outputs in zip(batch, batch_outputs):
+                labeled_instance = self.predictor.predictions_to_labeled_instances(instance, outputs)
+                labeled_instances.extend(labeled_instance)
+
+            self.batched_test_instances[b_idx] = labeled_instances
+
 
     def _calculate_average_datapoint_length(self):
         num_tokens_per_datapoint = [ sum( len(field) for field_name, field in instance.fields.items() if isinstance(field, TextField) ) for instance in self.test_instances ]
@@ -180,7 +193,7 @@ class Evaluator():
         stdev = statistics.stdev(non_zero_k[canon_key])
         print(f'k-statistics (using {canon_key})')
         print(f'mean: {mean}')
-        print(f'variance: {stdev}')
+        print(f'stdev: {stdev}')
 
     def generate_and_save_correlation_data_frames(self):
         csvs = []
