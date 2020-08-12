@@ -1,4 +1,5 @@
 local batch_size = 64;
+local alpha_param_re = "^.*attention\\.activation\\.alpha";
 {
     "dataset_reader": {
         "type": "imdb_csv",
@@ -19,7 +20,8 @@ local batch_size = 64;
             "n_heads": 12,
             "dim": 768,
             "activation_function": {
-                "type": "sparsemax"
+                "type": "entmax-alpha",
+                "alpha": 1.5
             },
             "dropout": 0.2
         },
@@ -38,7 +40,16 @@ local batch_size = 64;
         "validation_metric": "+accuracy",
         "optimizer": {
             "type": "huggingface_adamw",
-            "lr": 1.0e-5
-        }
+            "lr": 1.0e-5,
+            "parameter_groups": [
+                [[alpha_param_re], {"lr": 1.0e-3}]
+            ]
+        },
+        "epoch_callbacks" : [
+            {
+                "type": "print-parameter",
+                "param_re" : alpha_param_re 
+            }
+        ]
     }
 }
