@@ -18,6 +18,31 @@ class AttentionActivationFunction(nn.Module, Registrable):
         """Map a score vector to a probability distribution"""
         raise NotImplementedError('Implement forward Model')
 
+@AttentionActivationFunction.register("uniform")
+class UniformActivation(AttentionActivationFunction):
+    @overrides
+    def forward(self, scores: torch.Tensor, mask: torch.Tensor, invert_mask: bool = True) -> torch.Tensor:
+        """Map a score vector to the uniform probability distribution
+
+        Args:
+            scores (torch.Tensor): (Batch x Sequence Length)
+                Attention scores (also referred to as weights)
+            mask (torch.Tensor): (Batch x Sequence Length)
+                Specifies which indices are just padding
+            invert_mask (bool)
+                PyTorch fills in things with a mask value of 1, AllenNLP modules expect the opposite
+
+        Returns:
+            torch.Tensor: the Uniform distribution
+        """
+        if not invert_mask:
+            mask = ~mask
+        
+        lengths = mask.float().sum(dim=-1, keepdim=True) 
+        scores = 1.0 / lengths
+        uniform = mask.float() * scores
+        return uniform 
+
 
 @AttentionActivationFunction.register("softmax")
 class SoftmaxActivation(AttentionActivationFunction):
