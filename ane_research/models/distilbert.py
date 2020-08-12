@@ -50,7 +50,6 @@ class DistilBertEncoder(torch.nn.Module, FromParams):
         self.hidden_dim = hidden_dim
         self.ffn_activation = ffn_activation
         self.ffn_dropout = ffn_dropout
-        self.attention=attention
 
         self.transformer = Transformer(
             n_layers=self.n_layers,
@@ -59,7 +58,7 @@ class DistilBertEncoder(torch.nn.Module, FromParams):
             hidden_dim=self.hidden_dim,
             ffn_activation=self.ffn_activation,
             ffn_dropout=self.ffn_dropout,
-            attention=self.attention
+            attention=attention
         )
 
     @classmethod
@@ -84,8 +83,7 @@ class DistilBertEncoder(torch.nn.Module, FromParams):
         # the internal structure of whatever transformer you're using. 
         encoder_parameters = dict(encoder.named_parameters())
         for name, parameter in model.named_parameters():
-            if name.startswith("encoder."):
-                name = name[8:]
+            if name.startswith("transformer."):
                 name = name.replace("LayerNorm", "layer_norm")
                 if name not in encoder_parameters:
                     raise ValueError(
