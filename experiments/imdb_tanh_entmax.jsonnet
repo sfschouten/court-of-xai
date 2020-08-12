@@ -1,7 +1,7 @@
 local encoder_hidden_size = 128;
 local embedding_dim = 300;
 local batch_size = 64;
-
+local alpha_param_re = "^.*attention\\.activation\\.alpha";
 {
     "dataset_reader": {
         "type": "imdb_csv",
@@ -58,12 +58,15 @@ local batch_size = 64;
         "optimizer": {
             "type": "adam",
             "weight_decay": 1e-5,
-            "amsgrad": true
+            "amsgrad": true,
+            "parameter_groups": [
+                [[alpha_param_re], {"lr": 5.0e-3}]
+            ]
         },
         "epoch_callbacks" : [
             {
                 "type": "print-parameter",
-                "param_re" : "attention\\.activation\\.alpha"
+                "param_re" : alpha_param_re
             }
         ]
     }

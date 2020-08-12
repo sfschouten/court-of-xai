@@ -1,8 +1,9 @@
 local batch_size = 64;
+local alpha_param_re = "^.*attention\\.activation\\.alpha";
 {
     "dataset_reader": {
         "type": "imdb_csv",
-        "max_review_length": 100,
+        "max_review_length": 256,
         "pretrained_tokenizer": "distilbert-base-uncased"
     },
     "train_data_path": std.join("/", [std.extVar("PWD"), "ane_research/datasets/IMDB/train.csv"]),
@@ -39,12 +40,15 @@ local batch_size = 64;
         "validation_metric": "+accuracy",
         "optimizer": {
             "type": "huggingface_adamw",
-            "lr": 1.0e-5
+            "lr": 1.0e-5,
+            "parameter_groups": [
+                [[alpha_param_re], {"lr": 1.0e-3}]
+            ]
         },
         "epoch_callbacks" : [
             {
                 "type": "print-parameter",
-                "param_re" : "^.*attention\\.activation\\.alpha"
+                "param_re" : alpha_param_re 
             }
         ]
     }
