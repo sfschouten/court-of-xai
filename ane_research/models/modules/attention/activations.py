@@ -43,6 +43,7 @@ class UniformActivation(AttentionActivationFunction):
         uniform = mask.float() * scores
         return uniform 
 
+
 @AttentionActivationFunction.register("softmax")
 class SoftmaxActivation(AttentionActivationFunction):
     @overrides
