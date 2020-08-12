@@ -40,6 +40,12 @@ local batch_size = 64;
         "optimizer": {
             "type": "huggingface_adamw",
             "lr": 1.0e-5
-        }
+        },
+        "epoch_callbacks" : [
+            {
+                "type": "print-parameter",
+                "param_re" : "^.*attention\\.activation\\.alpha"
+            }
+        ]
     }
 }

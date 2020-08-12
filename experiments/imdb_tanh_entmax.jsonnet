@@ -41,7 +41,7 @@ local batch_size = 64;
             "hidden_size": encoder_hidden_size * 2,
             "activation_function": {
                 "type": "entmax-alpha",
-                "alpha": 1.5
+                "alpha": 1.4
             }
         }
     },
@@ -59,6 +59,12 @@ local batch_size = 64;
             "type": "adam",
             "weight_decay": 1e-5,
             "amsgrad": true
-        }
+        },
+        "epoch_callbacks" : [
+            {
+                "type": "print-parameter",
+                "param_re" : "attention\\.activation\\.alpha"
+            }
+        ]
     }
 }
