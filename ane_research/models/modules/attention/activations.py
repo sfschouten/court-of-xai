@@ -40,7 +40,7 @@ class SoftmaxActivation(AttentionActivationFunction):
             masked_scores = replace_masked_values(scores, mask, -float("inf"))
         else:
             masked_scores = scores.masked_fill(mask, -float("inf"))
-        return torch.nn.Softmax(dim=-1)(scores)
+        return torch.nn.Softmax(dim=-1)(masked_scores)
 
 
 @AttentionActivationFunction.register("sparsemax")
