@@ -21,8 +21,9 @@ args = parser.parse_args()
 recent_models = get_most_recent_trained_model_paths()
 for idx, recent_model in enumerate(recent_models):
 
-    _, recent_model_file = os.path.split(recent_model)
-    experiment_id, experiment_name = os.path.splitext(recent_model_file)
+    path, recent_model_file = os.path.split(recent_model)
+    _, model_type = os.path.split(path)
+    experiment_name, _ = os.path.splitext(recent_model_file)
 
     if args.experiment_keyword not in recent_model:
         continue
@@ -31,7 +32,7 @@ for idx, recent_model in enumerate(recent_models):
 
     print(f"Loading {recent_model}.")
 
-    evaluator = Evaluator(model_path = recent_model, calculate_on_init = True, experiment_name=experiment_name)
+    evaluator = Evaluator(model_path = recent_model, calculate_on_init = True, experiment_name=model_type)
     evaluator.generate_and_save_correlation_data_frames()
     evaluator.generate_and_save_correlation_graphs()
 

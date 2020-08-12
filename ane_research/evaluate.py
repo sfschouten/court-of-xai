@@ -168,15 +168,13 @@ class Evaluator():
           _, k = self.correlations[(key1, key2)].calculate_kendall_top_k_non_zero_correlation(score1, score2, kIsNonZero=True, p=0.5, class_name=class_name)
           non_zero_k[(key1, key2)].append(k)
     
-      #TODO reimplement different k warnings.
-
-      # Important: 'apples to apples' comparison: ensure the correlation calculation between the gradient and feature erasure measures
+      # Important: 'apples to apples' comparison: ensure the correlation calculation between the various saliency interpreters
       # uses the same k value for the kendall_top_k calculation as was used for the previous correlation calculations
-      #if k_af != k_ag:
-      #  self.logger.warning(f'kendall_top_k_non_zero mismatched k_value {k_af} != {k_ag}')
-      #_, k_fg = self.loo_gradient_correlation.calculate_kendall_top_k_non_zero_correlation(loo, gradients, k=k_af, kIsNonZero=False, class_name=class_name)
-      #if k_fg != k_af:
-      #  self.logger.warning(f'Used different k {k_fg}')
+      recent_ks = { (key1,key2): ks[-1] for (key1, key2), ks in non_zero_k.items() }
+      
+      if len(set(recent_ks.values())) > 1:
+          self.logger.warning(f"Not all k values used were the same across the different comparison pairs!")
+          self.logger.info(recent_ks)
 
     canon_key = next(iter(non_zero_k.keys()))
     mean = statistics.mean(non_zero_k[canon_key])
