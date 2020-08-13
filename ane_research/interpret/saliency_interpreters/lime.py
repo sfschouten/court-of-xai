@@ -37,28 +37,56 @@ class LimeInterpreter(SaliencyInterpreter):
         return sanitize(instances_with_lime)
 
 
-    def _lime(self, instance: Instance) -> None:
+    def _lime(self, instance: Instance) -> Dict[str, List[float]]:
+        SEPARATOR = "[LIME_SEP]"
 
-        nr_tokens = len(instance['tokens'])
+        fields = self.predictor._model.get_field_names()
+        nr_tokens = sum( len(instance[field]) for field in fields )
         label = int(instance['label'].label)
+        acc = -1
+
+        def split_by_fields(tokens):
+            l = [-1] + [int(l) for l in acc]
+            l[-1] += 1
+            return [tokens[l[i]+1:l[i+1]] for i in range(len(acc))]
 
         def wrap_fn(input_strings):
-            json = [ { "sentence" : input_string } for input_string in input_strings ]
+            nonlocal acc
+
+            split_original = [len(string.strip().split()) for string in input_strings[0].split(SEPARATOR)]
+            assert len(split_original) == len(fields)
+
+            acc = list(itertools.accumulate(split_original))
+
+            if len(fields) > 1:
+                json = [ { f"sentence{i+1}" : " ".join(part) for i,part in enumerate( split_by_fields(string.split()) ) } for string in input_strings ]
+            else:
+                json = [ { f"sentence" : string } for string in input_strings ]
+            
             predictions = self.predictor.predict_batch_json(json)
             cls_probs = [results['class_probabilities'] for results in predictions]
             return numpy.array(cls_probs)
         
-        instance_text = " ".join(token.text for token in instance['tokens'])
-
+        joined_sequences = [ " ".join(token.text for token in instance[field]) for field in fields]
+        instance_text = f' {SEPARATOR} '.join(joined_sequences)
+        
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", category=FutureWarning)
             explanation = self.explainer.explain_instance(
                     instance_text, 
                     wrap_fn, 
                     labels=(label,), 
-                    num_features=nr_tokens, 
+                    num_features=nr_tokens+1, 
                     num_samples=self.num_samples)
 
         exp_list = explanation.local_exp[label]
         exp_list.sort(key=lambda x: x[0])
-        return [abs(x[1]) for x in exp_list]
+        #print(exp_list)
+        #print(len(exp_list))
+        exp_list = list(itertools.chain.from_iterable(reversed(split_by_fields(exp_list))))
+        #print(exp_list)
+        #print(len(exp_list))
+        exp_list = [abs(x[1]) for x in exp_list]
+        #print(len(exp_list), nr_tokens)
+        assert len(exp_list) == nr_tokens
+        return exp_list

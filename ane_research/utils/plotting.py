@@ -1,16 +1,20 @@
 '''Utility functions to generate plots'''
+import os
+import itertools
+
+from typing import List, Dict, Tuple
 
 import matplotlib as mpl
 mpl.use('PS')
 import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
 
-import seaborn as sns
 from matplotlib import tight_layout
+
+import seaborn as sns
 import pandas as pd
 import numpy as np
-import os
-from typing import List, Dict, Tuple
+
 
 mpl.style.use('seaborn-poster')
 sns.set_palette(sns.color_palette(['#43406b', '#d15a00', '#27f77d']))
@@ -78,6 +82,7 @@ def annotate(ax, xlabel=None, ylabel=None, title=None, xlim=None, ylim=None, leg
     ax.legend(loc=legend_location)
 
 def generate_correlation_density_plot(ax, correlations: List[Tuple[str, np.ndarray]]):
-  linestyles = ['-', '--', ':', '-.']
-  for (name, measure) in correlations:
-    sns.kdeplot(measure, linewidth=2, linestyle=linestyles.pop(), color='k', ax=ax, label=name)
+    formats = [('.','-'), ('.','--'), ('.',':'), ('.','-.'),
+               ('*','-'), ('*','--'), ('*',':'), ('*','-.')]
+    for (name, measure), (marker, style) in zip(correlations, formats):
+        sns.kdeplot(measure, linewidth=1.5, linestyle=style, marker=marker, color='k', ax=ax, label=name, markevery=8, clip=(-1,1))

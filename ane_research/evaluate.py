@@ -71,9 +71,11 @@ class Evaluator():
         ensure_dir(self.correlation_path)
         self.graph_path = self.model_base_path + '/graphs/'
         ensure_dir(self.graph_path)
-        self.archive = load_archive(model_path)
+
+        self.device = -1 #0 if torch.cuda.is_available() else -1
+        self.archive = load_archive(model_path, cuda_device=self.device)
         self.model = self.archive.model
-        self.predictor = Predictor.from_archive(self.archive, self.archive.config.params['model']['type'])
+        self.predictor = Predictor.from_archive(self.archive, self.archive.config.params['model']['type'], frozen=False)
         self.class_idx2names = self.model.vocab.get_index_to_token_vocabulary('labels')
 
         # load test instances and split into batches
@@ -139,6 +141,8 @@ class Evaluator():
             counter = iter(range(1, len(self.test_instances) + 1))
             self.salience_scores[key] = {}
             for instance_batch in tqdm(self.batched_test_instances):
+                if self.device >= 0:
+                    self.model.train()
                 scores = interpreter.saliency_interpret_instances(instance_batch)
                 for field, val in scores.items():
                     scoresets = [ np.asarray(list(scoreset)) for _, scoreset in val.items()]
@@ -151,16 +155,15 @@ class Evaluator():
       
     def calculate_correlations(self):
         avg_length = self.average_datapoint_length
-        non_zero_k = { (key1, key2) : [] for (key1,_), (key2,_) in itertools.combinations(self.salience_scores.items(), 2) }
+        combos = list(itertools.combinations(self.salience_scores.items(), 2)) 
+        non_zero_k = { (key1, key2) : [] for (key1,_), (key2,_) in combos }
 
         # Calculate kendalltau, kendall_tau_top_k_non_zero, and kendall_tau_top_k_average_length for each datapoint
         for i in tqdm(range(len(self.test_instances))):
             label = self.labels[i]
             class_name = self.class_idx2names[int(label)]
 
-            # iterate over all possible pairs of saliency interpreters
-            for (key1, scoresets1), (key2, scoresets2) in itertools.combinations(self.salience_scores.items(), 2):
-
+            def calc(key1, key2, scoresets1, scoresets2, k=None):
                 # get the current instance's scores for current 2 interpreters
                 scoresets1 = scoresets1[f'instance_{i+1}']
                 scoresets2 = scoresets2[f'instance_{i+1}']
@@ -173,20 +176,30 @@ class Evaluator():
                 if len(score1) != len(score2):
                     self.logger.error(f"List of scores for {key1} and {key2} were not equal length! ({len(score1)}) vs. ({len(score2)})")
                     self.logger.debug(f"Relevant instance: {self.test_instances[i]}")
-                    continue
+                    return 
 
                 self.correlations[(key1, key2)].calculate_kendall_tau_correlation(score1, score2, class_name=class_name)
                 self.correlations[(key1, key2)].calculate_kendall_top_k_average_length_correlation(score1, score2, average_length=avg_length, p=0.5, class_name=class_name)
-                _, k = self.correlations[(key1, key2)].calculate_kendall_top_k_non_zero_correlation(score1, score2, kIsNonZero=True, p=0.5, class_name=class_name)
+                _, k = self.correlations[(key1, key2)].calculate_kendall_top_k_non_zero_correlation(score1, score2, kIsNonZero=(k==None), p=0.5, class_name=class_name, k=k)
                 non_zero_k[(key1, key2)].append(k)
-    
-            # Important: 'apples to apples' comparison: ensure the correlation calculation between the various saliency interpreters
-            # uses the same k value for the kendall_top_k calculation as was used for the previous correlation calculations
-            recent_ks = { (key1,key2): ks[-1] for (key1, key2), ks in non_zero_k.items() }
-      
+ 
+            # Go over all pairs with attention first. 
+            for (key1, scoresets1), (key2, scoresets2) in combos: 
+                if key1 == 'attn' or key2 == 'attn':
+                    calc(key1, key2, scoresets1, scoresets2)
+  
+            # Ensure the correlation calculation between the saliency interpreters and attention interpreter
+            # uses the same k value for the kendall_top_k calculation
+            recent_ks = { (key1,key2): ks[-1] for (key1, key2), ks in non_zero_k.items() if key1 == 'attn' or key2 == 'attn' }
             if len(set(recent_ks.values())) > 1:
                 self.logger.warning(f"Not all k values used were the same across the different comparison pairs!")
                 self.logger.info(recent_ks)
+
+            # Only then do correlations not involving attention, using the k value(s) used above.
+            k = int(sum(recent_ks.values()) / len(recent_ks.values()))
+            for (key1, scoresets1), (key2, scoresets2) in combos: 
+                if key1 != 'attn' and key2 != 'attn':
+                    calc(key1, key2, scoresets1, scoresets2, k=k)
 
         canon_key = next(iter(non_zero_k.keys()))
         mean = statistics.mean(non_zero_k[canon_key])

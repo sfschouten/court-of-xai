@@ -62,19 +62,20 @@ class PairSequenceClassifier(Model, CaptumCompatible):
     logits = self.decoder(combined)
     output_dict['logits'] = logits
 
-    probs = torch.nn.functional.softmax(logits, dim=-1)
-    nr_classes = len(self.vocab.get_index_to_token_vocabulary('labels').values())
+    if label is not None:
+        probs = torch.nn.functional.softmax(logits, dim=-1)
+        nr_classes = len(self.vocab.get_index_to_token_vocabulary('labels').values())
     
-    B, = label.shape
-    label2 = label.unsqueeze(-1).expand(B, nr_classes)
-    
-    mask = torch.arange(nr_classes, device=logits.device).unsqueeze(0).expand(*probs.shape) == label2
-    preds = probs[mask]
-    return preds
+        B, = label.shape
+        label2 = label.unsqueeze(-1).expand(B, nr_classes)
+   
+        mask = torch.arange(nr_classes, device=logits.device).unsqueeze(0).expand(*probs.shape) == label2
+        preds = probs[mask]
+        return preds
 
   
   @overrides
-  def forward(self, label, metadata, **inputs):
+  def forward(self, metadata, label=None, **inputs):
     output_dict = {}
 
     key1, key2 = self.field_names
@@ -91,7 +92,8 @@ class PairSequenceClassifier(Model, CaptumCompatible):
     embedded2, mask2 = embed(key2, sentence2)
 
     prediction = self.forward_inner(embedded1, embedded2, mask1, mask2, label, output_dict)
-    output_dict['prediction'] = prediction
+    if prediction is not None:
+        output_dict['prediction'] = prediction
     
     logits = output_dict['logits']
     class_probabilities = torch.nn.functional.softmax(logits, dim=-1)
