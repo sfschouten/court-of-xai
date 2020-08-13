@@ -72,7 +72,7 @@ class Evaluator():
         self.graph_path = self.model_base_path + '/graphs/'
         ensure_dir(self.graph_path)
 
-        self.device = -1 #0 if torch.cuda.is_available() else -1
+        self.device = 0 if torch.cuda.is_available() else -1
         self.archive = load_archive(model_path, cuda_device=self.device)
         self.model = self.archive.model
         self.predictor = Predictor.from_archive(self.archive, self.archive.config.params['model']['type'], frozen=False)
