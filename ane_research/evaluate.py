@@ -79,7 +79,10 @@ class Evaluator():
         self.class_idx2names = self.model.vocab.get_index_to_token_vocabulary('labels')
 
         # load test instances and split into batches
-        self.test_data_path = self.archive.config.params['test_data_path']
+        if 'test_data_path' in self.archive.config.params:
+            self.test_data_path = self.archive.config.params['test_data_path']
+        else:
+            self.test_data_path = self.archive.config.params['validation_data_path']
         self.test_instances = self.predictor._dataset_reader.read(self.test_data_path)
 
         random.seed(0)
