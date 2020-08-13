@@ -98,7 +98,7 @@ class Evaluator():
         #TODO replace the following by a constructor parameter
         # self.interpreters['dl_shap'] = CaptumInterpreter(self.predictor, CaptumDeepLiftShap(self.predictor))
         self.interpreters['g_shap'] = CaptumInterpreter(self.predictor, CaptumGradientShap(self.predictor))
-        self.interpreters['lime'] = LimeInterpreter(self.predictor)
+        self.interpreters['lime'] = LimeInterpreter(self.predictor, num_samples=250) #lime default is 5000
         # self.interpreters['loo']  = LeaveOneOut(self.predictor)
         self.interpreters['attn'] = AttentionInterpreter(self.predictor)
         # self.interpreters['grad'] = SimpleGradient(self.predictor)

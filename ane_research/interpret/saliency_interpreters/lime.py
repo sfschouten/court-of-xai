@@ -62,8 +62,14 @@ class LimeInterpreter(SaliencyInterpreter):
                 json = [ { f"sentence{i+1}" : " ".join(part) for i,part in enumerate( split_by_fields(string.split()) ) } for string in input_strings ]
             else:
                 json = [ { f"sentence" : string } for string in input_strings ]
-            
-            predictions = self.predictor.predict_batch_json(json)
+          
+            BATCH_SIZE = 256 
+            batches = (itertools.islice(json, x, x+BATCH_SIZE) for x in range(0, len(json), BATCH_SIZE))
+
+            predictions = []
+            for idx, batch in enumerate(batches):
+                batch = list(batch)
+                predictions.extend(self.predictor.predict_batch_json(batch))
             cls_probs = [results['class_probabilities'] for results in predictions]
             return numpy.array(cls_probs)
         
@@ -81,12 +87,6 @@ class LimeInterpreter(SaliencyInterpreter):
 
         exp_list = explanation.local_exp[label]
         exp_list.sort(key=lambda x: x[0])
-        #print(exp_list)
-        #print(len(exp_list))
         exp_list = list(itertools.chain.from_iterable(reversed(split_by_fields(exp_list))))
-        #print(exp_list)
-        #print(len(exp_list))
         exp_list = [abs(x[1]) for x in exp_list]
-        #print(len(exp_list), nr_tokens)
-        assert len(exp_list) == nr_tokens
         return exp_list
