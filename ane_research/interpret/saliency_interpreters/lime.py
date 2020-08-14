@@ -38,31 +38,45 @@ class LimeInterpreter(SaliencyInterpreter):
 
 
     def _lime(self, instance: Instance) -> Dict[str, List[float]]:
+        """
+        Calculates LIME attribution for the given Instance.
+
+        LIME does not natively support an input consisting of multiple sequences.
+        So if instance has multiple sequences we concatentate them, using a separator token
+        to allow splitting the concatentation back into its constituent parts.
+        """
         SEPARATOR = "[LIME_SEP]"
 
         fields = self.predictor._model.get_field_names()
         nr_tokens = sum( len(instance[field]) for field in fields )
         label = int(instance['label'].label)
-        acc = -1
+        seq_ends: List[int] = None
 
         def split_by_fields(tokens):
-            l = [-1] + [int(l) for l in acc]
+            l = [-1] + [int(l) for l in seq_ends
             l[-1] += 1
-            return [tokens[l[i]+1:l[i+1]] for i in range(len(acc))]
+            return [tokens[l[i]+1:l[i+1]] for i in range(len(seq_ends))]
 
         def wrap_fn(input_strings):
-            nonlocal acc
+            nonlocal seq_ends 
+            
+            # the first string in the input_string is the original input (none of the tokens replaced wiht UNK)
+            # we store the lengths of the constituent sequences 
+            seq_lenghts = [len(string.strip().split()) for string in input_strings[0].split(SEPARATOR)]
 
-            split_original = [len(string.strip().split()) for string in input_strings[0].split(SEPARATOR)]
-            assert len(split_original) == len(fields)
+            # after splitting by the separator we expect one string per field.           
+            assert len(seq_lengths) == len(fields) 
 
-            acc = list(itertools.accumulate(split_original))
+            # accumulate lengths to get the index of the token after each sequence
+            seq_ends = list(itertools.accumulate(seq_lengths))  # NON-LOCAL
 
             if len(fields) > 1:
+                # one json field per sequence
                 json = [ { f"sentence{i+1}" : " ".join(part) for i,part in enumerate( split_by_fields(string.split()) ) } for string in input_strings ]
             else:
                 json = [ { f"sentence" : string } for string in input_strings ]
-          
+         
+            # batched prediction
             BATCH_SIZE = 256 
             batches = (itertools.islice(json, x, x+BATCH_SIZE) for x in range(0, len(json), BATCH_SIZE))
 
@@ -71,6 +85,7 @@ class LimeInterpreter(SaliencyInterpreter):
                 batch = list(batch)
                 predictions.extend(self.predictor.predict_batch_json(batch))
             cls_probs = [results['class_probabilities'] for results in predictions]
+
             return numpy.array(cls_probs)
         
         joined_sequences = [ " ".join(token.text for token in instance[field]) for field in fields]
@@ -82,11 +97,13 @@ class LimeInterpreter(SaliencyInterpreter):
                     instance_text, 
                     wrap_fn, 
                     labels=(label,), 
-                    num_features=nr_tokens+1, 
+                    num_features=nr_tokens + len(fields) - 1, # account for the separator token
                     num_samples=self.num_samples)
 
         exp_list = explanation.local_exp[label]
         exp_list.sort(key=lambda x: x[0])
+
+        # reverse order of sequences for compatibility with AllenNLP interpreters.
         exp_list = list(itertools.chain.from_iterable(reversed(split_by_fields(exp_list))))
         exp_list = [abs(x[1]) for x in exp_list]
         return exp_list
