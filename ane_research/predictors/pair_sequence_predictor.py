@@ -21,11 +21,7 @@ class PairSequencePredictor(Predictor, AttentionModelPredictor):
     sentence1 = json_dict['sentence1']
     sentence2 = json_dict['sentence2']
 
-    # Assuming it's already tokenized.
-    tokens1 = sentence1.split()
-    tokens2 = sentence2.split()
-
-    instance = self._dataset_reader.text_to_instance(tokens1, tokens2)
+    instance = self._dataset_reader.text_to_instance(sentence1, sentence2)
     return instance
 
   @overrides
