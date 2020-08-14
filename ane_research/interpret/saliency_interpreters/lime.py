@@ -61,18 +61,18 @@ class LimeInterpreter(SaliencyInterpreter):
 
         def wrap_fn(input_strings):
             nonlocal seq_ends 
-            
+    
+            # the first string in the input_string is the original input (none of the tokens replaced with UNK)
+            # we store the lengths of the constituent sequences (including SEPERATOR) 
+            seq_lengths = [len(string.strip().split()) + 1 for string in input_strings[0].split(SEPARATOR)]
+
+            # after splitting by the separator we expect one string per field.           
+            assert len(seq_lengths) == len(fields) 
+
+            # accumulate lengths to get the index of the token after each sequence (including SEPERATOR)
+            seq_ends = list(itertools.accumulate(seq_lengths))  # NON-LOCAL
+
             if len(fields) > 1:
-                # the first string in the input_string is the original input (none of the tokens replaced with UNK)
-                # we store the lengths of the constituent sequences (including SEPERATOR) 
-                seq_lengths = [len(string.strip().split()) + 1 for string in input_strings[0].split(SEPARATOR)]
-
-                # after splitting by the separator we expect one string per field.           
-                assert len(seq_lengths) == len(fields) 
-
-                # accumulate lengths to get the index of the token after each sequence (including SEPERATOR)
-                seq_ends = list(itertools.accumulate(seq_lengths))  # NON-LOCAL
-
                 # one json field per sequence
                 json = [ { f"sentence{i+1}" : " ".join(part) for i,part in enumerate( split_by_fields(string.split()) ) } for string in input_strings ]
             else:
