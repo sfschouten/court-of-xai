@@ -37,7 +37,7 @@ class LimeInterpreter(SaliencyInterpreter):
         return sanitize(instances_with_lime)
 
 
-    def _lime(self, instance: Instance) -> Dict[str, List[float]]:
+    def _lime(self, instance: Instance) -> List[float]:
         """
         Calculates LIME attribution for the given Instance.
 
@@ -53,24 +53,26 @@ class LimeInterpreter(SaliencyInterpreter):
         seq_ends: List[int] = None
 
         def split_by_fields(tokens):
-            l = [-1] + [int(l) for l in seq_ends
-            l[-1] += 1
-            return [tokens[l[i]+1:l[i+1]] for i in range(len(seq_ends))]
+            """ splits list of tokens including (masked) seperator sequences using seq_ends """
+            # indices of first token of each sequence
+            l = [0] + [int(l) for l in seq_ends]
+            
+            return [tokens[l[i]:l[i+1]-1] for i in range(len(seq_ends))]
 
         def wrap_fn(input_strings):
             nonlocal seq_ends 
             
-            # the first string in the input_string is the original input (none of the tokens replaced wiht UNK)
-            # we store the lengths of the constituent sequences 
-            seq_lenghts = [len(string.strip().split()) for string in input_strings[0].split(SEPARATOR)]
-
-            # after splitting by the separator we expect one string per field.           
-            assert len(seq_lengths) == len(fields) 
-
-            # accumulate lengths to get the index of the token after each sequence
-            seq_ends = list(itertools.accumulate(seq_lengths))  # NON-LOCAL
-
             if len(fields) > 1:
+                # the first string in the input_string is the original input (none of the tokens replaced wiht UNK)
+                # we store the lengths of the constituent sequences (including SEPERATOR) 
+                seq_lengths = [len(string.strip().split()) + 1 for string in input_strings[0].split(SEPARATOR)]
+
+                # after splitting by the separator we expect one string per field.           
+                assert len(seq_lengths) == len(fields) 
+
+                # accumulate lengths to get the index of the token after each sequence (including SEPERATOR)
+                seq_ends = list(itertools.accumulate(seq_lengths))  # NON-LOCAL
+
                 # one json field per sequence
                 json = [ { f"sentence{i+1}" : " ".join(part) for i,part in enumerate( split_by_fields(string.split()) ) } for string in input_strings ]
             else:
@@ -101,7 +103,7 @@ class LimeInterpreter(SaliencyInterpreter):
                     num_samples=self.num_samples)
 
         exp_list = explanation.local_exp[label]
-        exp_list.sort(key=lambda x: x[0])
+        exp_list.sort(key=lambda x: x[0]) # sort by index
 
         # reverse order of sequences for compatibility with AllenNLP interpreters.
         exp_list = list(itertools.chain.from_iterable(reversed(split_by_fields(exp_list))))
