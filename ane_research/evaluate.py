@@ -75,7 +75,7 @@ class Evaluator():
         self.device = 0 if torch.cuda.is_available() else -1
         self.archive = load_archive(model_path, cuda_device=self.device)
         self.model = self.archive.model
-        self.predictor = Predictor.from_archive(self.archive, self.archive.config.params['model']['type'], frozen=False)
+        self.predictor = Predictor.from_archive(self.archive, self.archive.config.params['model']['type'])
         self.class_idx2names = self.model.vocab.get_index_to_token_vocabulary('labels')
 
         # load test instances and split into batches
@@ -135,7 +135,10 @@ class Evaluator():
 
 
     def _calculate_average_datapoint_length(self):
-        num_tokens_per_datapoint = [ sum( len(field) for field_name, field in instance.fields.items() if isinstance(field, TextField) ) for instance in self.test_instances ]
+        num_tokens_per_datapoint = [ \
+                sum( len(field) for field_name, field in instance.fields.items() if isinstance(field, TextField) ) \
+                for instance in self.test_instances \
+            ]
         mean = np.floor(np.mean(num_tokens_per_datapoint))
         return int(mean)
 
@@ -144,8 +147,6 @@ class Evaluator():
             counter = iter(range(1, len(self.test_instances) + 1))
             self.salience_scores[key] = {}
             for instance_batch in tqdm(self.batched_test_instances):
-                if self.device >= 0:
-                    self.model.train()
                 scores = interpreter.saliency_interpret_instances(instance_batch)
                 for field, val in scores.items():
                     scoresets = [ np.asarray(list(scoreset)) for _, scoreset in val.items()]

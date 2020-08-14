@@ -35,7 +35,7 @@ class CaptumAttribution(Registrable):
         captum_inputs = model.instances_to_captum_inputs(labeled_instances)
         kwargs = self.attribute_kwargs(captum_inputs)
 
-        with warnings.catch_warnings():
+        with warnings.catch_warnings(), torch.backends.cudnn.flags(enabled=False):
             warnings.simplefilter("ignore", category=UserWarning)
             tensors = self.attribute(**kwargs)
 
@@ -96,7 +96,6 @@ class CaptumCompatible():
         """
         Converts a set of Instances to a Tensor suitable to pass to the submodule
         obtained through captum_sub_model.
-
         Returns
           Tuple with (inputs, target, additional_forward_args)
           Both inputs and target tensors should have the Batch dimension first.
