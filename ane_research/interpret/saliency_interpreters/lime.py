@@ -53,7 +53,7 @@ class LimeInterpreter(SaliencyInterpreter):
         seq_ends: List[int] = None
 
         def split_by_fields(tokens):
-            """ splits list of tokens including (masked) seperator sequences using seq_ends """
+            """ splits list of tokens including (masked) seperator using seq_ends """
             # indices of first token of each sequence
             l = [0] + [int(l) for l in seq_ends]
             
@@ -63,7 +63,7 @@ class LimeInterpreter(SaliencyInterpreter):
             nonlocal seq_ends 
             
             if len(fields) > 1:
-                # the first string in the input_string is the original input (none of the tokens replaced wiht UNK)
+                # the first string in the input_string is the original input (none of the tokens replaced with UNK)
                 # we store the lengths of the constituent sequences (including SEPERATOR) 
                 seq_lengths = [len(string.strip().split()) + 1 for string in input_strings[0].split(SEPARATOR)]
 
@@ -105,7 +105,8 @@ class LimeInterpreter(SaliencyInterpreter):
         exp_list = explanation.local_exp[label]
         exp_list.sort(key=lambda x: x[0]) # sort by index
 
-        # reverse order of sequences for compatibility with AllenNLP interpreters.
+        # Remove attribution to seperator, and concatenate constituent sequences in reverse order 
+        # for compatibility with AllenNLP interpreters.
         exp_list = list(itertools.chain.from_iterable(reversed(split_by_fields(exp_list))))
         exp_list = [abs(x[1]) for x in exp_list]
         return exp_list
