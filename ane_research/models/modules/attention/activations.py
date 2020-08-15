@@ -102,6 +102,8 @@ class EntmaxAlphaActivation(AttentionActivationFunction):
     def __init__(self, alpha: float):
         super().__init__()
 
+        # pylint: disable=E1102 
+        # (https://github.com/pytorch/pytorch/issues/24807)
         self.alpha = torch.nn.Parameter(torch.tensor(alpha, requires_grad=True))
 
     @overrides
