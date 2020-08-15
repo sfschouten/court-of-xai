@@ -3,6 +3,7 @@ The building blocks for a basic Transformer model described in 'Attention is All
 Code taken from the HuggingFace Transformer v2.11.0 library with minor modifications
 """
 
+from collections import defaultdict
 import copy
 import math
 from typing import List, Optional
@@ -15,7 +16,8 @@ import torch.nn as nn
 from allennlp.common import FromParams
 from transformers.activations import gelu
 
-from ane_research.models.modules.attention.attention import Attention
+from ane_research.models.modules.attention.attention import Attention, AttentionAnalysisMethods
+
 
 class FFN(nn.Module):
     """Fully connected feed-forward network"""
@@ -113,20 +115,22 @@ class TransformerBlock(nn.Module):
         self.output_layer_norm = nn.LayerNorm(normalized_shape=dim, eps=1e-12)
 
     def forward(self, x: torch.Tensor, attn_mask: Optional[torch.Tensor] = None, head_mask: Optional[torch.Tensor] = None,
-                output_attentions: Optional[bool] = False):
+                output_attentions: Optional[List[AttentionAnalysisMethods]] = None):
         """
         Parameters
         ----------
         x: torch.tensor(bs, seq_length, dim)
         attn_mask: torch.tensor(bs, seq_length)
         head_mask [Optional]: torch.tensor(num_hidden_layers, bs, num_heads, seq_length, seq_length)
-        output_attentions [Optional]: bool 
-            Include attention weights in outputs
+        output_attentions [Optional]: List[AttentionAnalysisMethods]
+            Attention analysis methods to returns. At the block level, supports AttentionAnalysisMethods.weight_based
+            and AttentionAnalysisMethods.norm_based
 
         Outputs
         -------
-        sa_weights: torch.tensor(bs, n_heads, seq_length, seq_length)
-            The attention weights
+        sa_dict:  JsonDict
+            Optional if `output_attentions` is not empty. Dict of requested AttentionAnalysisMethods
+            and their corresponding tensors
         ffn_output: torch.tensor(bs, seq_length, dim)
             The output of the transformer block contextualization.
         """
@@ -135,7 +139,7 @@ class TransformerBlock(nn.Module):
             query=x, key=x, value=x, mask=attn_mask, head_mask=head_mask, output_attentions=output_attentions,
         )
         if output_attentions:
-            sa_output, sa_weights = sa_output  # (bs, seq_length, dim), (bs, n_heads, seq_length, seq_length)
+            sa_output, sa_dict = sa_output  # (bs, seq_length, dim), (bs, n_heads, seq_length, seq_length)
         else:  # To handle these `output_attention` or `output_hidden_states` cases returning tuples
             assert type(sa_output) == tuple
             sa_output = sa_output[0]
@@ -147,7 +151,7 @@ class TransformerBlock(nn.Module):
 
         output = (ffn_output,)
         if output_attentions:
-            output = (sa_weights,) + output
+            output = (sa_dict,) + output
         return output
 
 
@@ -174,15 +178,15 @@ class Transformer(nn.Module):
         self.layer = nn.ModuleList([copy.deepcopy(layer) for _ in range(n_layers)])
 
     def forward(self, x: torch.Tensor, attn_mask: Optional[torch.Tensor] = None, head_mask: Optional[torch.Tensor] = None,
-                output_attentions: Optional[bool] = False, output_hidden_states: Optional[bool] = False):
+                output_attentions: Optional[List[AttentionAnalysisMethods]] = None, output_hidden_states: Optional[bool] = False):
         """
         Parameters
         ----------
         x: torch.tensor(bs, seq_length, dim)
         attn_mask: torch.tensor(bs, seq_length)
         head_mask [Optional]: torch.tensor(num_hidden_layers, bs, num_heads, seq_length, seq_length)
-        output_attentions [Optional]: bool 
-            Include attention weights in outputs
+        output_attentions [Optional]: List[AttentionAnalysisMethods]
+            Attention analysis methods to returns. At the Transformer level, supports all AttentionAnalysisMethods
         output_hidden_states [Optional]: bool
             Include all hidden states in outputs
 
@@ -193,12 +197,12 @@ class Transformer(nn.Module):
         all_hidden_states: Tuple[torch.tensor(bs, seq_length, dim)]
             Tuple of length n_layers with the hidden states from each layer.
             Optional: only if output_hidden_states=True
-        all_attentions: Tuple[torch.tensor(bs, n_heads, seq_length, seq_length)]
-            Tuple of length n_layers with the attention weights from each layer
-            Optional: only if output_attentions=True
+        attention_dict:  JsonDict
+            Optional if `output_attentions` is not empty. Dict of requested AttentionAnalysisMethods
+            and their corresponding Tuples of length n_layers with the appropriate tensors from each layer
         """
         all_hidden_states = ()
-        all_attentions = ()
+        attention_dict = defaultdict(tuple)
 
         hidden_state = x
         for i, layer_module in enumerate(self.layer):
@@ -215,8 +219,9 @@ class Transformer(nn.Module):
 
             if output_attentions:
                 assert len(layer_outputs) == 2
-                attentions = layer_outputs[0]
-                all_attentions = all_attentions + (attentions,)
+                layer_attention_dict = layer_outputs[0]
+                for k, v in layer_attention_dict.items():
+                    attention_dict[k] += (v,)
             else:
                 assert len(layer_outputs) == 1
 
@@ -228,5 +233,5 @@ class Transformer(nn.Module):
         if output_hidden_states:
             outputs = outputs + (all_hidden_states,)
         if output_attentions:
-            outputs = outputs + (all_attentions,)
+            outputs = outputs + (attention_dict,)
         return outputs  # last-layer hidden state, (all hidden states), (all attentions)

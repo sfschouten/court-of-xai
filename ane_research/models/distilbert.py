@@ -1,7 +1,10 @@
-# '''
-# DistilBERT code taken from the HuggingFace Transformer 2.11.0 library with minor modifications
-# Allen NLP compatibility code taken from https://github.com/allenai/allennlp/pull/4495/files
-# '''
+"""
+Implement DistilBERT by Sanh et al. 2019 (arXiv 1910.01108)
+
+DistilBERT code taken from the HuggingFace Transformer 2.11.0 library with minor modifications
+Allen NLP compatibility code taken from https://github.com/allenai/allennlp/pull/4495/files
+"""
+
 from copy import deepcopy
 import math
 from typing import Dict, List, Optional, Iterable
@@ -23,7 +26,7 @@ from transformers.modeling_utils import PreTrainedModel
 from ane_research.interpret.saliency_interpreters.captum_interpreter import CaptumCompatible
 from ane_research.models.modules.architectures.transformer import Transformer, Embeddings
 from ane_research.models.modules.attention.activations import SoftmaxActivation
-from ane_research.models.modules.attention.attention import Attention
+from ane_research.models.modules.attention.attention import Attention, AttentionAnalysisMethods
 from ane_research.models.modules.attention.self import MultiHeadSelfAttention
 
 
@@ -97,11 +100,11 @@ class DistilBertEncoder(torch.nn.Module, FromParams):
     @overrides
     def forward(
         self,
-        attention_mask: torch.Tensor = None,
-        head_mask: torch.Tensor = None,
-        inputs_embeds: torch.Tensor = None,
-        output_attentions: bool = None,
-        output_hidden_states: bool = None
+        attention_mask: torch.Tensor,
+        head_mask: torch.Tensor,
+        inputs_embeds: torch.Tensor,
+        output_attentions: Optional[List[AttentionAnalysisMethods]] = None,
+        output_hidden_states: Optional[bool] = False
     ):
         return self.transformer(
             x=inputs_embeds,
@@ -175,9 +178,9 @@ class DistilBertForSequenceClassification(Model, CaptumCompatible):
     def forward_inner(self,
         embedded_tokens: torch.Tensor,
         attention_mask: torch.Tensor,
-        output_attentions: bool,
+        output_attentions: List[AttentionAnalysisMethods],
         output_dict: JsonDict
-    ):
+    ) -> torch.Tensor:
         # (bs, seq_len) -> (num_hidden_layers, batch, num_heads, seq_length, seq_length)
         head_mask = attention_mask.unsqueeze(0).unsqueeze(2).unsqueeze(-1)
         head_mask = head_mask.expand(self.encoder.n_layers, -1, self.encoder.n_heads, -1, attention_mask.shape[1])
@@ -198,9 +201,16 @@ class DistilBertForSequenceClassification(Model, CaptumCompatible):
         output_dict["logits"] = logits
 
         if output_attentions:
-            # Tuple of n_layer tensors of shape (bs, num_heads, seq_length, seq_length)
+            # Tuple of n_layer dicts of tensors of shape (bs, num_heads, seq_length, seq_length)
             # Stack to single tuple of (bs, n_layers, num_heads, seq_length, seq_length)
-            output_dict["attention"] = torch.stack(encoder_output[1], dim=1)
+            attentions = encoder_output[1]
+            weight_label = AttentionAnalysisMethods.weight_based
+            norm_label = AttentionAnalysisMethods.norm_based
+
+            if weight_label in output_attentions:
+                output_dict[weight_label]= torch.stack([l for l in attentions[weight_label]], dim=1)
+            if norm_label in output_attentions:
+                output_dict[norm_label] = torch.stack([l for l in attentions[norm_label]], dim=1)
 
         class_probabilities = torch.nn.Softmax(dim=-1)(logits)
         return class_probabilities
@@ -210,12 +220,16 @@ class DistilBertForSequenceClassification(Model, CaptumCompatible):
         self,
         tokens: TextFieldTensors,
         label: torch.LongTensor = None,
-        output_attentions: bool = False
-    ):
+        output_attentions: Optional[List[AttentionAnalysisMethods]] = None
+    ) -> JsonDict:
+        # https://docs.python-guide.org/writing/gotchas/#mutable-default-arguments
+        if output_attentions is None:
+            output_attentions = []
+
         output_dict = {}
 
         input_ids = tokens["tokens"]["token_ids"] # (bs, seq_len)
-        attention_mask = tokens["tokens"]["mask"] # (bs, seq_len)
+        attention_mask = util.get_text_field_mask(tokens) # (bs, seq_len)
 
         embedding_output = self.embeddings(input_ids) # (bs, seq_len, dim)
         class_probabilities = self.forward_inner(
@@ -234,15 +248,15 @@ class DistilBertForSequenceClassification(Model, CaptumCompatible):
         return output_dict
 
     @overrides
-    def forward_on_instances(self, instances: List[Instance]) -> List[Dict[str, np.ndarray]]:
-        # An exact copy of the original method, but includes the flag to output attention scores
+    def forward_on_instances(self, instances: List[Instance], **kwargs) -> List[Dict[str, np.ndarray]]:
+        # An exact copy of the original method, but supports kwargs
         batch_size = len(instances)
         with torch.no_grad():
             cuda_device = self._get_prediction_device()
             dataset = Batch(instances)
             dataset.index_instances(self.vocab)
             model_input = util.move_to_device(dataset.as_tensor_dict(), cuda_device)
-            outputs = self.make_output_human_readable(self(**model_input, output_attentions=True))
+            outputs = self.make_output_human_readable(self(**model_input, **kwargs))
             instance_separated_output: List[Dict[str, np.ndarray]] = [
                 {} for _ in dataset.instances
             ]
@@ -263,10 +277,14 @@ class DistilBertForSequenceClassification(Model, CaptumCompatible):
             return instance_separated_output
 
     @overrides
+    def forward_on_instance(self, instance: Instance, **kwargs) -> Dict[str, np.ndarray]:
+        return self.forward_on_instances([instance], **kwargs)[0]
+
+    @overrides
     def make_output_human_readable(self, output_dict: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
         '''
         Does a simple argmax over the class probabilities, converts indices to string labels, and
-        adds a ``'label'`` key to the dictionary with the result.
+        adds a `label` key to the dictionary with the result.
         '''
         output_dict['label'] = torch.argmax(output_dict['class_probabilities'], dim=1)
         return output_dict
@@ -312,6 +330,6 @@ class _CaptumSubModel(torch.nn.Module):
         return self.model.forward_inner(
             embedded_tokens=embedded_tokens,
             attention_mask=attention_mask,
-            output_attentions=True,
+            output_attentions=None,
             output_dict=output_dict
         )

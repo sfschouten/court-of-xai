@@ -18,6 +18,8 @@ from allennlp.common.util import JsonDict, sanitize
 from allennlp.data import Instance, Batch
 from allennlp.interpret.saliency_interpreters import SaliencyInterpreter
 
+# pylint: disable=E1101
+
 # Registrable for captum registrations.
 class CaptumAttribution(Registrable):
 
@@ -35,6 +37,7 @@ class CaptumAttribution(Registrable):
         captum_inputs = model.instances_to_captum_inputs(labeled_instances)
         kwargs = self.attribute_kwargs(captum_inputs)
 
+        # TODO: remove disabling of CUDNN when https://github.com/pytorch/pytorch/issues/10006 is fixed
         with warnings.catch_warnings(), torch.backends.cudnn.flags(enabled=False):
             warnings.simplefilter("ignore", category=UserWarning)
             tensors = self.attribute(**kwargs)
