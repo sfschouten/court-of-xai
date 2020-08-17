@@ -1,4 +1,4 @@
-from typing import List, Dict, Union, Iterable 
+from typing import Any, List, Dict, Union, Iterable 
 
 import numpy
 import itertools

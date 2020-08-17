@@ -1,6 +1,5 @@
 '''AllenNLP Predictor class for a DistilBERT Sequence Classification model'''
 
-from copy import deepcopy
 from typing import Dict, List
 
 from allennlp.common.util import JsonDict, sanitize
@@ -13,7 +12,8 @@ import numpy as np
 from overrides import overrides
 import torch
 
-from ane_research.interpret.saliency_interpreters.attention_interpreter import AttentionModelPredictor
+from ane_research.models.modules.attention import AttentionAnalysisMethods
+from ane_research.interpret.saliency_interpreters.attention import AttentionModelPredictor
 
 
 @Predictor.register("distilbert_sequence_classification")
@@ -41,21 +41,27 @@ class DistilBertForSequenceClassificationPredictor(Predictor, AttentionModelPred
         }
 
     @overrides
+    def predict_instance(self, instance: Instance, **kwargs) -> JsonDict:
+        outputs = self._model.forward_on_instance(instance, **kwargs)
+        return sanitize(outputs)
+
+    @overrides
     def predictions_to_labeled_instances(self, instance: Instance, outputs: Dict[str, np.ndarray]) -> List[Instance]:
-        new_instance = deepcopy(instance)
+        new_instance = instance.duplicate()
         label = np.argmax(outputs['class_probabilities'])
-        new_instance.add_field("label", LabelField(int(label)))
+        new_instance.add_field("label", LabelField(int(label), skip_indexing=True))
         return [new_instance]
 
-    def get_attention_based_salience_for_instance(self, labeled_instance: Instance) -> np.ndarray:
-        output = self.predict_instance(labeled_instance)
-        attention_weights = np.asarray(output['attention']) # (n_layers, n_heads, seq_length, seq_length)
+    def get_attention_based_salience_for_instance(self, labeled_instance: Instance, analysis_method: AttentionAnalysisMethods) -> JsonDict:
+        output = self.predict_instance(labeled_instance, output_attentions=[analysis_method])
+        attention_weights = output[analysis_method] # (bs, n_layers, n_heads, seq_len, seq_len) or (bs, n_layers, n_heads, seq_len)
         # average across layers
         attention_weights = np.average(attention_weights, axis=0)
         # average across heads
         attention_weights = np.average(attention_weights, axis=0)
-        # collapse to 1D
-        attention_weights = np.max(attention_weights, axis=0)
-    
+
+        if len(attention_weights.shape) == 2:
+            # collapse to 1D
+            attention_weights = np.max(attention_weights, axis=1)
+
         return { 'tokens' : attention_weights } 
-        

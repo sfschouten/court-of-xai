@@ -1,4 +1,4 @@
-from typing import List, Dict, Union, Iterable 
+from typing import List, Dict, Union, Iterable
 
 from lime import lime_text
 from lime.lime_text import LimeTextExplainer
@@ -56,18 +56,18 @@ class LimeInterpreter(SaliencyInterpreter):
             """ splits list of tokens including (masked) seperator using seq_ends """
             # indices of first token of each sequence
             l = [0] + [int(l) for l in seq_ends]
-            
+
             return [tokens[l[i]:l[i+1]-1] for i in range(len(seq_ends))]
 
         def wrap_fn(input_strings):
-            nonlocal seq_ends 
-    
+            nonlocal seq_ends
+
             # the first string in the input_string is the original input (none of the tokens replaced with UNK)
-            # we store the lengths of the constituent sequences (including SEPERATOR) 
+            # we store the lengths of the constituent sequences (including SEPERATOR)
             seq_lengths = [len(string.strip().split()) + 1 for string in input_strings[0].split(SEPARATOR)]
 
-            # after splitting by the separator we expect one string per field.           
-            assert len(seq_lengths) == len(fields) 
+            # after splitting by the separator we expect one string per field.
+            assert len(seq_lengths) == len(fields)
 
             # accumulate lengths to get the index of the token after each sequence (including SEPERATOR)
             seq_ends = list(itertools.accumulate(seq_lengths))  # NON-LOCAL
@@ -77,9 +77,9 @@ class LimeInterpreter(SaliencyInterpreter):
                 json = [ { f"sentence{i+1}" : " ".join(part) for i,part in enumerate( split_by_fields(string.split()) ) } for string in input_strings ]
             else:
                 json = [ { f"sentence" : string } for string in input_strings ]
-         
+
             # batched prediction
-            BATCH_SIZE = 256 
+            BATCH_SIZE = 256
             batches = (itertools.islice(json, x, x+BATCH_SIZE) for x in range(0, len(json), BATCH_SIZE))
 
             predictions = []
@@ -89,23 +89,23 @@ class LimeInterpreter(SaliencyInterpreter):
             cls_probs = [results['class_probabilities'] for results in predictions]
 
             return numpy.array(cls_probs)
-        
+
         joined_sequences = [ " ".join(token.text for token in instance[field]) for field in fields]
         instance_text = f' {SEPARATOR} '.join(joined_sequences)
-        
+
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", category=FutureWarning)
             explanation = self.explainer.explain_instance(
-                    instance_text, 
-                    wrap_fn, 
-                    labels=(label,), 
+                    instance_text,
+                    wrap_fn,
+                    labels=(label,),
                     num_features=nr_tokens + len(fields) - 1, # account for the separator token
                     num_samples=self.num_samples)
 
         exp_list = explanation.local_exp[label]
         exp_list.sort(key=lambda x: x[0]) # sort by index
 
-        # Remove attribution to seperator, and concatenate constituent sequences in reverse order 
+        # Remove attribution to seperator, and concatenate constituent sequences in reverse order
         # for compatibility with AllenNLP interpreters.
         exp_list = list(itertools.chain.from_iterable(reversed(split_by_fields(exp_list))))
         exp_list = [abs(x[1]) for x in exp_list]

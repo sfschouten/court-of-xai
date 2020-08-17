@@ -27,8 +27,9 @@ from ane_research.utils.kendall_top_k import kendall_top_k
 import ane_research.utils.plotting as plotting
 
 
+from ane_research.models.modules.attention.attention import AttentionAnalysisMethods
 from ane_research.interpret.saliency_interpreters.leave_one_out import LeaveOneOut
-from ane_research.interpret.saliency_interpreters.attention_interpreter import AttentionInterpreter 
+from ane_research.interpret.saliency_interpreters.attention import AttentionWeightInterpreter, AttentionWeightedVectorNormInterpreter 
 from ane_research.interpret.saliency_interpreters.lime import LimeInterpreter 
 from ane_research.interpret.saliency_interpreters.captum_interpreter import CaptumInterpreter, CaptumDeepLiftShap, CaptumGradientShap
 from     allennlp.interpret.saliency_interpreters import SimpleGradient
@@ -103,7 +104,8 @@ class Evaluator():
         self.interpreters['g_shap'] = CaptumInterpreter(self.predictor, CaptumGradientShap(self.predictor))
         self.interpreters['lime'] = LimeInterpreter(self.predictor, num_samples=250) #lime default is 5000
         # self.interpreters['loo']  = LeaveOneOut(self.predictor)
-        self.interpreters['attn'] = AttentionInterpreter(self.predictor)
+        self.interpreters[AttentionAnalysisMethods.weight_based.value] = AttentionWeightInterpreter(self.predictor)
+        self.interpreters[AttentionAnalysisMethods.norm_based.value] = AttentionWeightedVectorNormInterpreter(self.predictor)
         # self.interpreters['grad'] = SimpleGradient(self.predictor)
         # self.interpreters['intgrad'] = IntegratedGradient(self.predictor)
 
@@ -189,12 +191,12 @@ class Evaluator():
  
             # Go over all pairs with attention first. 
             for (key1, scoresets1), (key2, scoresets2) in combos: 
-                if key1 == 'attn' or key2 == 'attn':
+                if 'attn' in key1 or 'attn' in key2:
                     calc(key1, key2, scoresets1, scoresets2)
   
             # Ensure the correlation calculation between the saliency interpreters and attention interpreter
             # uses the same k value for the kendall_top_k calculation
-            recent_ks = { (key1,key2): ks[-1] for (key1, key2), ks in non_zero_k.items() if key1 == 'attn' or key2 == 'attn' }
+            recent_ks = { (key1,key2): ks[-1] for (key1, key2), ks in non_zero_k.items() if 'attn' in key1 or 'attn' in key2 }
             if len(set(recent_ks.values())) > 1:
                 self.logger.warning(f"Not all k values used were the same across the different comparison pairs!")
                 self.logger.info(recent_ks)
@@ -202,7 +204,7 @@ class Evaluator():
             # Only then do correlations not involving attention, using the k value(s) used above.
             k = int(sum(recent_ks.values()) / len(recent_ks.values()))
             for (key1, scoresets1), (key2, scoresets2) in combos: 
-                if key1 != 'attn' and key2 != 'attn':
+                if 'attn' in key1 and 'attn' in key2:
                     calc(key1, key2, scoresets1, scoresets2, k=k)
 
         canon_key = next(iter(non_zero_k.keys()))
