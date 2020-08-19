@@ -1,9 +1,20 @@
 local batch_size = 64;
 local alpha_param_re = "^.*attention\\.activation\\.alpha";
+local transformer_model = "distilbert-base-uncased";
 {
     "dataset_reader": {
         "type": "sst_tokens",
-        "granularity": "2-class"
+        "granularity": "2-class",
+        "token_indexers": {
+            "tokens": {
+                "type": "pretrained_transformer",
+                "model_name": transformer_model
+            }
+        },
+        "tokenizer": {
+            "type": "pretrained_transformer",
+            "model_name": transformer_model
+        }
     },
     "train_data_path": std.join("/", [std.extVar("PWD"), "ane_research/datasets/SST/train.txt"]),
     "test_data_path": std.join("/", [std.extVar("PWD"), "ane_research/datasets/SST/test.txt"]),
@@ -11,7 +22,7 @@ local alpha_param_re = "^.*attention\\.activation\\.alpha";
     "evaluate_on_test": false,
     "model": {
         "type": "distilbert_sequence_classification_from_huggingface",
-        "model_name": "distilbert-base-uncased",
+        "model_name": transformer_model,
         "ffn_activation": "gelu",
         "ffn_dropout": 0.2,
         "attention": {
