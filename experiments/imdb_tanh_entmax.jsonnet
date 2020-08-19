@@ -41,7 +41,7 @@ local alpha_param_re = "^.*attention\\.activation\\.alpha";
             "hidden_size": encoder_hidden_size * 2,
             "activation_function": {
                 "type": "entmax-alpha",
-                "alpha": 1.4
+                "alpha": 1.5
             }
         }
     },
