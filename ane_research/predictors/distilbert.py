@@ -59,21 +59,15 @@ class DistilBertForSequenceClassificationPredictor(Predictor, AttentionModelPred
         # Rollout: (n_layers, seq_len, seq_len)
         attention = np.asarray(output[analysis_method])
 
-        # average across layers
-        # Weights: (n_heads, seq_len, seq_len)
-        # Norm: (n_heads, seq_len)
-        # Rollout: (seq_len, seq_len)
-        attention = np.average(attention, axis=0)
-
-        # average across heads
-        # Weights: (seq_len, seq_len)
-        # Norm: (seq_len)
-        # Rollout: (seq_len, seq_len)
+        # For Weights or Norm, average across layers and heads and collapse to 1D
         if analysis_method == AttentionAnalysisMethods.weight_based or analysis_method == AttentionAnalysisMethods.norm_based:
             attention = np.average(attention, axis=0)
+            attention = np.average(attention, axis=0)
+            if len(attention.shape) == 2:
+                attention = np.max(attention, axis=1)
 
-        # collapse to 1D (seq_len)
-        if len(attention.shape) == 2:
-            attention = np.max(attention, axis=1)
+        # For Rollout, take the scores for the CLS token in the last layer
+        if analysis_method == AttentionAnalysisMethods.rollout:
+            attention = attention[-1][0]
 
-        return { 'tokens' : attention } 
+        return { 'tokens' : attention }
