@@ -38,6 +38,10 @@ class JWAED(Model, CaptumCompatible):
             "auc": Auc(positive_label=1)
         }
         self.loss = torch.nn.BCEWithLogitsLoss()
+        self.supported_attention_analysis_methods = [
+            AttentionAnalysisMethods.weight_based,
+            AttentionAnalysisMethods.norm_based
+        ]
 
     def forward_inner(
         self,

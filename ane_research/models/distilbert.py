@@ -137,6 +137,12 @@ class DistilBertForSequenceClassification(Model, CaptumCompatible):
         self.classifier = nn.Linear(self.encoder.dim, self.num_labels)
         self.dropout = nn.Dropout(self.seq_classif_dropout)
 
+        self.supported_attention_analysis_methods = [
+            AttentionAnalysisMethods.weight_based,
+            AttentionAnalysisMethods.norm_based,
+            AttentionAnalysisMethods.rollout
+        ]
+
         self.metrics = {
             'accuracy': CategoricalAccuracy()
         }
@@ -201,16 +207,19 @@ class DistilBertForSequenceClassification(Model, CaptumCompatible):
         output_dict["logits"] = logits
 
         if output_attentions:
-            # Tuple of n_layer dicts of tensors of shape (bs, num_heads, seq_length, seq_length)
-            # Stack to single tuple of (bs, n_layers, num_heads, seq_length, seq_length)
+            # Tuple of n_layer dicts of tensors of shape (bs, ..., seq_length)
+            # Stack to single tuple of (bs, n_layers, ...,  seq_length)
             attentions = encoder_output[1]
             weight_label = AttentionAnalysisMethods.weight_based
             norm_label = AttentionAnalysisMethods.norm_based
+            rollout_label = AttentionAnalysisMethods.rollout
 
             if weight_label in output_attentions:
-                output_dict[weight_label]= torch.stack([l for l in attentions[weight_label]], dim=1)
+                output_dict[weight_label]= torch.stack(attentions[weight_label], dim=1)
             if norm_label in output_attentions:
-                output_dict[norm_label] = torch.stack([l for l in attentions[norm_label]], dim=1)
+                output_dict[norm_label] = torch.stack(attentions[norm_label], dim=1)
+            if rollout_label in output_attentions:
+                output_dict[rollout_label] = torch.stack(attentions[rollout_label], dim=1)
 
         class_probabilities = torch.nn.Softmax(dim=-1)(logits)
         return class_probabilities

@@ -43,6 +43,10 @@ class PairSequenceClassifier(Model, CaptumCompatible):
 
         #TODO check for appropriate dimensions.
 
+        self.supported_attention_analysis_methods = [
+            AttentionAnalysisMethods.weight_based,
+            AttentionAnalysisMethods.norm_based
+        ]
         self.field_names = field_names
 
     def forward_inner(
