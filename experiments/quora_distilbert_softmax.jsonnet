@@ -14,10 +14,9 @@ local batch_size = 128;
     }},
     "combine_input_fields" : true,
   },
-  # temporarily using dev set for training, and test for validation and test.
-  "train_data_path": std.join("/", [std.extVar("PWD"), "ane_research/datasets/SNLI/snli_1.0_train.jsonl"]),
-  "test_data_path": std.join("/", [std.extVar("PWD"), "ane_research/datasets/SNLI/snli_1.0_test.jsonl"]),
-  "validation_data_path": std.join("/", [std.extVar("PWD"), "ane_research/datasets/SNLI/snli_1.0_dev.jsonl"]),
+  "train_data_path": std.join("/", [std.extVar("PWD"), "ane_research/datasets/QUORA/quora_train.tsv"]),
+  "test_data_path": std.join("/", [std.extVar("PWD"), "ane_research/datasets/QUORA/quora_train.tsv"]),
+  "validation_data_path": std.join("/", [std.extVar("PWD"), "ane_research/datasets/QUORA/quora_train.tsv"]),
   "evaluate_on_test": true,
   "model": {
     "type": "distilbert_sequence_classification_from_huggingface",
