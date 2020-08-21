@@ -1,4 +1,6 @@
-from typing import List, Dict, Iterable 
+from typing import List, Dict, Iterable, Optional 
+
+import logging
 
 from allennlp.common.util import JsonDict, sanitize
 from allennlp.data import Instance
@@ -23,6 +25,11 @@ class AttentionModelPredictor():
         """
         raise NotImplementedError()
 
+    def get_suitable_aggregators():
+        """
+        Returns one or more suitable aggregator types, if no aggregation is necessary should include None
+        """
+        raise NotImplementedError()
 
 class AttentionInterpreter(SaliencyInterpreter):
 
@@ -30,14 +37,23 @@ class AttentionInterpreter(SaliencyInterpreter):
             self, 
             predictor: AttentionModelPredictor, 
             analysis_method: AttentionAnalysisMethods,
-            aggregate_method: AttentionAggregator
+            aggregate_method: Optional[AttentionAggregator] = None
     ):
+        """
+        """
         if not isinstance(predictor, AttentionModelPredictor):
             raise TypeError("predictor must be of :class:`~.interpret.saliency_interpreters.AttentionModelPredictor`")
 
         super().__init__(predictor)
         self.analysis_method = analysis_method
+
+        # Make sure aggregate_method is suitable for predictor
+        if not any(isinstance(aggregate_method, suitable) for suitable in  predictor.get_suitable_aggregators()):
+            logger = logging.getLogger(__name__)
+            logger.warning("The supplied aggregator is not suitable for this predictor!")
+        
         self.aggregate_method = aggregate_method
+
 
     def saliency_interpret_instances(self, labeled_instances: Iterable[Instance]) -> JsonDict:
         instances_with_attn = dict()
@@ -57,56 +73,4 @@ class AttentionInterpreter(SaliencyInterpreter):
         return sanitize(instances_with_attn)
 
 
-@SaliencyInterpreter.register("attention-avg-weights")
-class AttentionWeightInterpreter(AttentionInterpreter):
-    def __init__(self, predictor: AttentionModelPredictor):
-        super().__init__(
-            predictor, 
-            AttentionAnalysisMethods.weight_based,
-            AttentionAverager()
-        )
 
-@SaliencyInterpreter.register("attention-avg-weighted-vector-norm")
-class AttentionWeightedVectorNormInterpreter(AttentionInterpreter):
-    def __init__(self, predictor: AttentionModelPredictor):
-        super().__init__(
-            predictor, 
-            AttentionAnalysisMethods.norm_based,
-            AttentionAverager()
-        )
-
-@SaliencyInterpreter.register("attention-rollout-weights")
-class AttentionRolloutWeightInterpreter(AttentionInterpreter):
-    def __init__(self, predictor: AttentionModelPredictor):
-        super().__init__(
-            predictor, 
-            AttentionAnalysisMethods.weight_based,
-            AttentionRollout()
-        )
-
-@SaliencyInterpreter.register("attention-rollout-weighted-vector-norm")
-class AttentionRolloutWVNInterpreter(AttentionInterpreter):
-    def __init__(self, predictor: AttentionModelPredictor):
-        super().__init__(
-            predictor, 
-            AttentionAnalysisMethods.norm_based,
-            AttentionRollout()
-            )
-
-#@SaliencyInterpreter.register("attention-flow-weights")
-#class AttentionFlowWeightInterpreter(AttentionInterpreter):
-#    def __init__(self, predictor: AttentionModelPredictor):
-#        super().__init__(predictor, AttentionAnalysisMethods.flow)
-
-#@SaliencyInterpreter.register("attention-flow-weighted-vector-norm")
-#class AttentionFlowWVNInterpreter(AttentionInterpreter):
-#    def __init__(self, predictor: AttentionModelPredictor):
-#        super().__init__(predictor, AttentionAnalysisMethods.flow)
-
-#TODO fix this
-AnalysisMethodToInterpreter = {
-    AttentionAnalysisMethods.weight_based: AttentionWeightInterpreter,
-    AttentionAnalysisMethods.norm_based: AttentionWeightedVectorNormInterpreter,
-#    AttentionAnalysisMethods.rollout: AttentionRolloutInterpreter,
-#    AttentionAnalysisMethods.flow: AttentionFlowInterpreter
-}
