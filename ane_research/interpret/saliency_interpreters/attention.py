@@ -32,6 +32,7 @@ class AttentionModelPredictor():
         """
         raise NotImplementedError()
 
+@SaliencyInterpreter.register("attention-interpreter")
 class AttentionInterpreter(SaliencyInterpreter):
 
     def __init__(

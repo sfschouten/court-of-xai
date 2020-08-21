@@ -16,7 +16,7 @@ class AttentionAnalysisMethods(Enum):
     # Weighted vector norms as described by Kobayashi et al. 2020 (arXiv 2004.10102)
     norm_based   = 'attn_norm'
 
-class AttentionAggregator():
+class AttentionAggregator(Registrable):
 
     def id(self):
         raise NotImplementedError("Implement the id method")
@@ -30,6 +30,7 @@ class AttentionAggregator():
         """
         raise NotImplementedError("Implement the aggregation method.")
 
+@AttentionAggregator.register("attention-averager")
 class AttentionAverager(AttentionAggregator):
 
     def id(self):
@@ -50,6 +51,7 @@ class AttentionAverager(AttentionAggregator):
         attention, _ = attention.max(dim=2)
         return attention
 
+@AttentionAggregator.register("attention-rollout")
 class AttentionRollout(AttentionAggregator):
 
     def id(self):
