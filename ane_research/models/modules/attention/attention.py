@@ -37,7 +37,9 @@ class AttentionAverager(AttentionAggregator):
     
     def aggregate(self, attention: torch.Tensor) -> torch.Tensor:
         """
-        Averages attention accross 
+        Averages attention accross layers, heads, and max pools across the last
+        dimension of attention matrix.
+
         Parameters
         ----------
         attention_matrix: torch.tensor(bs, n_layers, n_heads, seq_length, seq_length)
