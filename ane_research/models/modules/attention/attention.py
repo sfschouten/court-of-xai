@@ -106,9 +106,8 @@ class AttentionRollout(AttentionAggregator):
                 rollout_attention[:,i-1]
             )
 
-        # Tuple of L tensors of shape (bs, seq_length, seq_length)i
-        #results = torch.unbind(rollout_attention, dim=1)
-        
+       
+        # Return amount of attention the last layer's CLS token pays to the input tokens.
         return rollout_attention[:,-1,0]
 
 
