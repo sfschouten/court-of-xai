@@ -51,23 +51,16 @@ class DistilBertForSequenceClassificationPredictor(Predictor, AttentionModelPred
         new_instance.add_field("label", LabelField(int(label), skip_indexing=True))
         return [new_instance]
 
-    def get_attention_based_salience_for_instance(self, labeled_instance: Instance, analysis_method: AttentionAnalysisMethods) -> JsonDict:
-        output = self.predict_instance(labeled_instance, output_attentions=[analysis_method])
+    def get_attention_based_salience_for_instance(
+            self, 
+            labeled_instance: Instance, 
+            analysis_method: AttentionAnalysisMethods,
+            aggregate_method: AttentionAnalysisMethods
+        ) -> JsonDict:
 
-        # Weights: (n_layers, n_heads, seq_len, seq_len)
-        # Norm: (n_layers, n_heads, seq_len, seq_len)
-        # Rollout: (n_layers, seq_len, seq_len)
-        attention = np.asarray(output[analysis_method])
+        output = self._model.forward_on_instance(labeled_instance, output_attentions=[analysis_method])
+        attention = torch.from_numpy(output[analysis_method]).unsqueeze(0)
+        aggr_attn = aggregate_method.aggregate(attention)
 
-        # For Weights or Norm, average across layers and heads and collapse to 1D
-        if analysis_method == AttentionAnalysisMethods.weight_based or analysis_method == AttentionAnalysisMethods.norm_based:
-            attention = np.average(attention, axis=0)
-            attention = np.average(attention, axis=0)
-            if len(attention.shape) == 2:
-                attention = np.max(attention, axis=1)
-
-        # For Rollout, take the scores for the CLS token in the last layer
-        if analysis_method == AttentionAnalysisMethods.rollout:
-            attention = attention[-1][0]
-
-        return { 'tokens' : attention }
+        aggr_attn = aggr_attn.squeeze().numpy()
+        return { 'tokens' : aggr_attn }
