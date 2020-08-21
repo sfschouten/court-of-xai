@@ -17,7 +17,7 @@ class AttentionModelPredictor():
     def get_attention_based_salience_for_instance(
             labeled_instance: Instance, 
             analysis_method: AttentionAnalysisMethods,
-            aggregate_method: AttentionAnalysisMethods
+            aggregate_method: AttentionAggregator
         ) -> Dict[str, Iterable[float]]:
         """
         Returns a dictionary with for each TextField in the instance, an iterable with the attention paid
