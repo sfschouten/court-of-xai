@@ -1,4 +1,4 @@
-from typing import List, Dict, Iterable, Optional 
+from typing import List, Dict, Iterable, Optional, Type, Union
 
 import logging
 
@@ -25,9 +25,10 @@ class AttentionModelPredictor():
         """
         raise NotImplementedError()
 
-    def get_suitable_aggregators():
+    def get_suitable_aggregators() -> Iterable[Type[Union[None, AttentionAggregator]]]:
         """
-        Returns one or more suitable aggregator types, if no aggregation is necessary should include None
+        Returns one or more suitable aggregator types, if no aggregation is necessary the iterable 
+        should include NoneType.
         """
         raise NotImplementedError()
 
