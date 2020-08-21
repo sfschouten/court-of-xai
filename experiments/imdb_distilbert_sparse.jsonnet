@@ -2,7 +2,7 @@ local batch_size = 64;
 {
     "dataset_reader": {
         "type": "imdb_csv",
-        "max_review_length": 256,
+        "max_review_length": 240,
         "pretrained_tokenizer": "distilbert-base-uncased"
     },
     "train_data_path": std.join("/", [std.extVar("PWD"), "ane_research/datasets/IMDB/train.csv"]),

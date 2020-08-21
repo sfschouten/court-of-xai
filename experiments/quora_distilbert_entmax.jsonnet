@@ -1,15 +1,23 @@
-local batch_size = 64;
+local batch_size = 128;
 local alpha_param_re = "^.*attention\\.activation\\.alpha";
 {
     "dataset_reader": {
-        "type": "imdb_csv",
-        "max_review_length": 240,
-        "pretrained_tokenizer": "distilbert-base-uncased"
+        "type": "quora_paraphrase",
+        "tokenizer": {
+            "type" : "pretrained_transformer",
+            "model_name" : "distilbert-base-uncased",
+            "add_special_tokens" : false
+        },
+        "token_indexers": { "tokens" : {
+            "type" : "pretrained_transformer",
+            "model_name" : "distilbert-base-uncased",
+        }},
+        "combine_input_fields" : true,
     },
-    "train_data_path": std.join("/", [std.extVar("PWD"), "ane_research/datasets/IMDB/train.csv"]),
-    "test_data_path": std.join("/", [std.extVar("PWD"), "ane_research/datasets/IMDB/test.csv"]),
-    "validation_data_path": std.join("/", [std.extVar("PWD"), "ane_research/datasets/IMDB/dev.csv"]),
-    "evaluate_on_test": false,
+    "train_data_path": std.join("/", [std.extVar("PWD"), "ane_research/datasets/QUORA/quora_train.tsv"]),
+    "test_data_path": std.join("/", [std.extVar("PWD"), "ane_research/datasets/QUORA/quora_test.tsv"]),
+    "validation_data_path": std.join("/", [std.extVar("PWD"), "ane_research/datasets/QUORA/quora_dev.tsv"]),
+    "evaluate_on_test": true,
     "model": {
         "type": "distilbert_sequence_classification_from_huggingface",
         "model_name": "distilbert-base-uncased",
@@ -17,7 +25,7 @@ local alpha_param_re = "^.*attention\\.activation\\.alpha";
         "ffn_dropout": 0.2,
         "attention": {
             "type": "multihead_self",
-            "n_heads": 12,
+            "n_heads": 12, 
             "dim": 768,
             "activation_function": {
                 "type": "entmax-alpha",
@@ -25,7 +33,7 @@ local alpha_param_re = "^.*attention\\.activation\\.alpha";
             },
             "dropout": 0.2
         },
-        "num_labels": 2,
+        "num_labels": 3,
         "seq_classif_dropout": 0.1
     },
     "data_loader": {
@@ -40,7 +48,7 @@ local alpha_param_re = "^.*attention\\.activation\\.alpha";
         "validation_metric": "+accuracy",
         "optimizer": {
             "type": "huggingface_adamw",
-            "lr": 1.0e-5,
+            "lr": 2.0e-5,
             "parameter_groups": [
                 [[alpha_param_re], {"lr": 1.0e-3}]
             ]

@@ -1,15 +1,15 @@
 local encoder_hidden_size = 128;
 local embedding_dim = 300;
 local batch_size = 64;
-local alpha_param_re = "^.*attention\\.activation\\.alpha";
+
 {
     "dataset_reader": {
-        "type": "imdb_csv",
-        "max_review_length": 512
+        "type": "sst_tokens",
+        "granularity": "2-class"
     },
-    "train_data_path": std.join("/", [std.extVar("PWD"), "ane_research/datasets/IMDB/train.csv"]),
-    "test_data_path": std.join("/", [std.extVar("PWD"), "ane_research/datasets/IMDB/test.csv"]),
-    "validation_data_path": std.join("/", [std.extVar("PWD"), "ane_research/datasets/IMDB/dev.csv"]),
+    "train_data_path": std.join("/", [std.extVar("PWD"), "ane_research/datasets/SST/train.txt"]),
+    "test_data_path": std.join("/", [std.extVar("PWD"), "ane_research/datasets/SST/test.txt"]),
+    "validation_data_path": std.join("/", [std.extVar("PWD"), "ane_research/datasets/SST/dev.txt"]),
     "evaluate_on_test": true,
     "model": {
         "type": "jain_wallace_attention_binary_classifier",
@@ -40,8 +40,7 @@ local alpha_param_re = "^.*attention\\.activation\\.alpha";
             "type": "additive_basic",
             "hidden_size": encoder_hidden_size * 2,
             "activation_function": {
-                "type": "entmax-alpha",
-                "alpha": 1.5
+                "type": "uniform"
             }
         }
     },
@@ -58,16 +57,7 @@ local alpha_param_re = "^.*attention\\.activation\\.alpha";
         "optimizer": {
             "type": "adam",
             "weight_decay": 1e-5,
-            "amsgrad": true,
-            "parameter_groups": [
-                [[alpha_param_re], {"lr": 5.0e-3}]
-            ]
-        },
-        "epoch_callbacks" : [
-            {
-                "type": "print-parameter",
-                "param_re" : alpha_param_re
-            }
-        ]
+            "amsgrad": true
+        }
     }
 }

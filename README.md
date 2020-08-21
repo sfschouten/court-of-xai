@@ -12,7 +12,10 @@
 - Stefan F. Schouten
 
 ## Datasets
+- Quora (https://drive.google.com/file/d/12b-cq6D45U5c-McPoq2wsFjzs6QduY_y/view?usp=sharing)
+  - Our split (80/10/10), question pairs with combined word count greater than 200 were removed.
 - SNLI (https://nlp.stanford.edu/projects/snli/)
+- MultiNLI (https://cims.nyu.edu/~sbowman/multinli/)
 - IMDb
 - SST-2
 

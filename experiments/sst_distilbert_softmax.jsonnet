@@ -1,17 +1,27 @@
 local batch_size = 64;
+local transformer_model = "distilbert-base-uncased";
 {
     "dataset_reader": {
-        "type": "imdb_csv",
-        "max_review_length": 240,
-        "pretrained_tokenizer": "distilbert-base-uncased"
+        "type": "sst_tokens",
+        "granularity": "2-class",
+        "token_indexers": {
+            "tokens": {
+                "type": "pretrained_transformer",
+                "model_name": transformer_model
+            }
+        },
+        "tokenizer": {
+            "type": "pretrained_transformer",
+            "model_name": transformer_model
+        }
     },
-    "train_data_path": std.join("/", [std.extVar("PWD"), "ane_research/datasets/IMDB/train.csv"]),
-    "test_data_path": std.join("/", [std.extVar("PWD"), "ane_research/datasets/IMDB/test.csv"]),
-    "validation_data_path": std.join("/", [std.extVar("PWD"), "ane_research/datasets/IMDB/dev.csv"]),
+    "train_data_path": std.join("/", [std.extVar("PWD"), "ane_research/datasets/SST/train.txt"]),
+    "test_data_path": std.join("/", [std.extVar("PWD"), "ane_research/datasets/SST/test.txt"]),
+    "validation_data_path": std.join("/", [std.extVar("PWD"), "ane_research/datasets/SST/dev.txt"]),
     "evaluate_on_test": false,
     "model": {
         "type": "distilbert_sequence_classification_from_huggingface",
-        "model_name": "distilbert-base-uncased",
+        "model_name": transformer_model,
         "ffn_activation": "gelu",
         "ffn_dropout": 0.2,
         "attention": {

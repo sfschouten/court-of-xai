@@ -29,7 +29,7 @@ local batch_size = 128;
                 "n_heads": 12, 
                 "dim": 768,
                 "activation_function": {
-                        "type": "softmax"
+                        "type": "uniform"
                 },
                 "dropout": 0.2
         },
