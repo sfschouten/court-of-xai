@@ -112,11 +112,11 @@ class Evaluator():
         # self.interpreters['grad'] = SimpleGradient(self.predictor)
         # self.interpreters['intgrad'] = IntegratedGradient(self.predictor)
                  
-        #self.interpreters["attn_w"] = AttentionInterpreter(self.predictor, AttentionAnalysisMethods.weight_based)
-        #self.interpreters["attn_vn"] = AttentionInterpreter(self.predictor, AttentionAnalysisMethods.norm_based)
-        
-        self.interpreters["attn_w_roll"] = AttentionInterpreter(self.predictor, AttentionAnalysisMethods.weight_based, AttentionRollout() )
-        self.interpreters["attn_vn_roll"] = AttentionInterpreter(self.predictor, AttentionAnalysisMethods.norm_based, AttentionRollout() )
+        for aggr_type in self.predictor.get_suitable_aggregators():
+            for analysis in self.predictor._model.supported_attention_analysis_methods:
+                aggr = aggr_type()
+                name = f'{analysis.value}' + (f'_{aggr.id()}' if aggr else '')
+                self.interpreters[name] = AttentionInterpreter(self.predictor, analysis, aggr)
 
         self.salience_scores = {}
 

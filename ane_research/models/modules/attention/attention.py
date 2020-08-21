@@ -18,6 +18,9 @@ class AttentionAnalysisMethods(Enum):
 
 class AttentionAggregator():
 
+    def id(self):
+        raise NotImplementedError("Implement the id method")
+
     def aggregate(attention_matrix: torch.Tensor) -> torch.Tensor:
         """
         Args:
@@ -29,13 +32,20 @@ class AttentionAggregator():
 
 class AttentionAverager(AttentionAggregator):
 
-    def aggregate(self, attention_matrix: torch.Tensor) -> torch.Tensor:
+    def id(self):
+        return "avg"
+    
+    def aggregate(self, attention: torch.Tensor) -> torch.Tensor:
+        attention = attention.squeeze()
         attention = attention.mean(dim=0)
         attention = attention.mean(dim=0)
-        attention,_ = attention.max(dim=1)
+        attention, _ = attention.max(dim=1)
         return attention
 
 class AttentionRollout(AttentionAggregator):
+
+    def id(self):
+        return "roll"
 
     def aggregate(self, attention_matrix: torch.Tensor) -> torch.Tensor:
         """
