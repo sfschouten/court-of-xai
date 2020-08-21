@@ -24,7 +24,7 @@ class AttentionAggregator():
     def aggregate(attention_matrix: torch.Tensor) -> torch.Tensor:
         """
         Args:
-          attention: attention accross heads and layers(bs, n_layers, n_heads, seq_length, seq_length)
+          attention: attention from the various attention mechanisms in the model.
         Returns:
           the attention, but aggregated to be of shape (bs, seq_len)
         """
@@ -36,10 +36,16 @@ class AttentionAverager(AttentionAggregator):
         return "avg"
     
     def aggregate(self, attention: torch.Tensor) -> torch.Tensor:
-        attention = attention.squeeze()
-        attention = attention.mean(dim=0)
-        attention = attention.mean(dim=0)
-        attention, _ = attention.max(dim=1)
+        """
+        Averages attention accross 
+        Parameters
+        ----------
+        attention_matrix: torch.tensor(bs, n_layers, n_heads, seq_length, seq_length)
+            Matrix of attention weights
+        """
+        attention = attention.mean(dim=1)
+        attention = attention.mean(dim=1)
+        attention, _ = attention.max(dim=2)
         return attention
 
 class AttentionRollout(AttentionAggregator):
