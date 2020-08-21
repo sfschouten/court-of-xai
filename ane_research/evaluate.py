@@ -29,7 +29,7 @@ import ane_research.utils.plotting as plotting
 
 from ane_research.models.modules.attention.attention import AttentionAnalysisMethods
 from ane_research.interpret.saliency_interpreters.leave_one_out import LeaveOneOut
-from ane_research.interpret.saliency_interpreters.attention import AttentionWeightInterpreter, AttentionWeightedVectorNormInterpreter 
+from ane_research.interpret.saliency_interpreters.attention import AnalysisMethodToInterpreter
 from ane_research.interpret.saliency_interpreters.lime import LimeInterpreter 
 from ane_research.interpret.saliency_interpreters.captum_interpreter import CaptumInterpreter, CaptumDeepLiftShap, CaptumGradientShap
 from     allennlp.interpret.saliency_interpreters import SimpleGradient
@@ -104,10 +104,11 @@ class Evaluator():
         self.interpreters['g_shap'] = CaptumInterpreter(self.predictor, CaptumGradientShap(self.predictor))
         self.interpreters['lime'] = LimeInterpreter(self.predictor, num_samples=250) #lime default is 5000
         # self.interpreters['loo']  = LeaveOneOut(self.predictor)
-        self.interpreters[AttentionAnalysisMethods.weight_based.value] = AttentionWeightInterpreter(self.predictor)
-        self.interpreters[AttentionAnalysisMethods.norm_based.value] = AttentionWeightedVectorNormInterpreter(self.predictor)
         # self.interpreters['grad'] = SimpleGradient(self.predictor)
         # self.interpreters['intgrad'] = IntegratedGradient(self.predictor)
+
+        for method in self.model.supported_attention_analysis_methods:
+            self.interpreters[method.value] = AnalysisMethodToInterpreter[method](self.predictor)
 
         self.salience_scores = {}
 

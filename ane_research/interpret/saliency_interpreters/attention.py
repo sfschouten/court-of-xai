@@ -46,6 +46,7 @@ class AttentionInterpreter(SaliencyInterpreter):
 
         return sanitize(instances_with_attn)
 
+
 @SaliencyInterpreter.register("attention-weights")
 class AttentionWeightInterpreter(AttentionInterpreter):
     def __init__(self, predictor: AttentionModelPredictor):
@@ -56,3 +57,23 @@ class AttentionWeightInterpreter(AttentionInterpreter):
 class AttentionWeightedVectorNormInterpreter(AttentionInterpreter):
     def __init__(self, predictor: AttentionModelPredictor):
         super().__init__(predictor, AttentionAnalysisMethods.norm_based)
+
+
+@SaliencyInterpreter.register("attention-rollout")
+class AttentionRolloutInterpreter(AttentionInterpreter):
+    def __init__(self, predictor: AttentionModelPredictor):
+        super().__init__(predictor, AttentionAnalysisMethods.rollout)
+
+
+@SaliencyInterpreter.register("attention-flow")
+class AttentionFlowInterpreter(AttentionInterpreter):
+    def __init__(self, predictor: AttentionModelPredictor):
+        super().__init__(predictor, AttentionAnalysisMethods.flow)
+
+
+AnalysisMethodToInterpreter = {
+    AttentionAnalysisMethods.weight_based: AttentionWeightInterpreter,
+    AttentionAnalysisMethods.norm_based: AttentionWeightedVectorNormInterpreter,
+    AttentionAnalysisMethods.rollout: AttentionRolloutInterpreter,
+    AttentionAnalysisMethods.flow: AttentionFlowInterpreter
+}

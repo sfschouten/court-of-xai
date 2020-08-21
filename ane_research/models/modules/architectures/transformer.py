@@ -6,7 +6,7 @@ Code taken from the HuggingFace Transformer v2.11.0 library with minor modificat
 from collections import defaultdict
 import copy
 import math
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 import numpy as np
 from overrides import overrides
@@ -177,6 +177,57 @@ class Transformer(nn.Module):
         )
         self.layer = nn.ModuleList([copy.deepcopy(layer) for _ in range(n_layers)])
 
+    def attention_rollout(self, attention_matrix: torch.Tensor) -> Tuple[torch.Tensor]:
+        """
+        Compute input Attention Rollout as described by Abnar and Zuidema 2020 (arXiv 2005.00928):
+
+        From the paper: "Attention Rollout assumes that the identities of input tokens are linearly combined
+        through the layers based on the attention weights. To adjust attention weights, it rolls out the weights
+        to capture the propagation of information from input tokens to intermediate hidden embeddings."
+
+        Calculation
+        -----------
+        Attention Rollout: A~
+        Attention Weights: A
+
+        A~(l_i) = A(l_i)A~(l_i−1) if i > j
+        A~(l_i) = A(l_i) if i = j
+
+        For input attention, i = n_layers, j = 0
+
+        Parameters
+        ----------
+        attention_matrix: torch.tensor(bs, n_layers, n_heads, seq_length, seq_length)
+            Full matrix of attention weights
+
+        Outputs
+        -------
+        attention_rollout: Tuple[torch.tensor(bs, seq_length, seq_length)]
+            Attention rollout weights at each layer
+        """
+        # Use a single attention graph by averaging all heads
+        attn_avg_heads = attention_matrix.mean(dim=2) # (bs, n_layers, seq_length, seq_length)
+
+        # To account for residual connections, we add an identity matrix to the attention matrix
+        # and re-normalize the weights.
+        residual_atttention_matrix = torch.eye(attn_avg_heads.shape[2]) # (seq_length, seq_length)
+        augmented_attention_matrix = attn_avg_heads + residual_atttention_matrix # (bs, n_layers, seq_length, seq_length)
+        augmented_attention_matrix = torch.nn.functional.normalize(augmented_attention_matrix, dim=-1, p=1)
+
+
+        rollout_attention = torch.zeros(augmented_attention_matrix.shape) # (bs, n_layers, seq_length, seq_length)
+
+        # Roll out the weights
+        rollout_attention[:,0] = augmented_attention_matrix[:,0]
+        for i in range(1, self.n_layers):
+            rollout_attention[:,i] = torch.matmul(
+                augmented_attention_matrix[:,i],
+                rollout_attention[:,i-1]
+            )
+
+        # Tuple of n_layers tensors of shape (bs, seq_length, seq_length)
+        return torch.unbind(rollout_attention, dim=1)
+
     def forward(self, x: torch.Tensor, attn_mask: Optional[torch.Tensor] = None, head_mask: Optional[torch.Tensor] = None,
                 output_attentions: Optional[List[AttentionAnalysisMethods]] = None, output_hidden_states: Optional[bool] = False):
         """
@@ -204,6 +255,16 @@ class Transformer(nn.Module):
         all_hidden_states = ()
         attention_dict = defaultdict(tuple)
 
+        if output_attentions is None:
+            output_attentions = []
+
+        has_rollout = AttentionAnalysisMethods.rollout in output_attentions
+        has_weights  = AttentionAnalysisMethods.weight_based in output_attentions
+
+        # need the attention weights to calculate rollout
+        if has_rollout and not has_weights:
+            output_attentions.append(AttentionAnalysisMethods.weight_based)
+
         hidden_state = x
         for i, layer_module in enumerate(self.layer):
             if output_hidden_states:
@@ -224,6 +285,11 @@ class Transformer(nn.Module):
                     attention_dict[k] += (v,)
             else:
                 assert len(layer_outputs) == 1
+
+        if has_rollout:
+            # stack layers
+            full_attention_matrix = torch.stack(attention_dict[AttentionAnalysisMethods.weight_based], dim=1)
+            attention_dict[AttentionAnalysisMethods.rollout] = self.attention_rollout(full_attention_matrix)
 
         # Add last layer
         if output_hidden_states:
