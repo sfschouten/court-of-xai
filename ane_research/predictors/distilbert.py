@@ -55,7 +55,7 @@ class DistilBertForSequenceClassificationPredictor(Predictor, AttentionModelPred
         output = self.predict_instance(labeled_instance, output_attentions=[analysis_method])
 
         # Weights: (n_layers, n_heads, seq_len, seq_len)
-        # Norm: (n_layers, n_heads, seq_len)
+        # Norm: (n_layers, n_heads, seq_len, seq_len)
         # Rollout: (n_layers, seq_len, seq_len)
         attention = np.asarray(output[analysis_method])
 

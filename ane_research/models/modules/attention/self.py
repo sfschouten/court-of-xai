@@ -135,8 +135,12 @@ class MultiHeadSelfAttention(Attention):
             if AttentionAnalysisMethods.weight_based in output_attentions:
                 attention_dict[AttentionAnalysisMethods.weight_based] = weights
             if AttentionAnalysisMethods.norm_based in output_attentions:
-                norm = torch.norm(alpha_fx, dim=-1)  # (bs, n_heads, q_length)
-                attention_dict[AttentionAnalysisMethods.norm_based] = norm
+                fx = fx.unsqueeze(2)        # (bs, n_heads, 1,        k_length, dim_per_head)
+                w = weights.unsqueeze(-1)   # (bs, n_heads, q_length, k_length, 1)
+                alpha_fx_matrix = w * fx    # (bs, n_heads, q_length, k_length, dim_per_head)
+
+                norms = torch.norm(alpha_fx_matrix, dim=-1)  # (bs, n_heads, q_length, k_length)
+                attention_dict[AttentionAnalysisMethods.norm_based] = norms
             return (context, attention_dict,)
         else:
             return (context,)
