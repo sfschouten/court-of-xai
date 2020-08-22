@@ -49,7 +49,17 @@ class PairSequencePredictor(Predictor, AttentionModelPredictor):
         new_instance.add_field("label", LabelField(int(label), skip_indexing=True))
         return [new_instance]
 
-    def get_attention_based_salience_for_instance(self, labeled_instance: Instance, analysis_method: AttentionAnalysisMethods) -> JsonDict:
+    @overrides
+    def get_suitable_aggregators(self):
+        return [type(None)]
+
+    @overrides
+    def get_attention_based_salience_for_instance(
+            self, 
+            labeled_instance: Instance, 
+            analysis_method: AttentionAnalysisMethods,
+            aggregate_method: None 
+        ) -> JsonDict:
         output = self.predict_instance(labeled_instance, output_attentions=[analysis_method])
 
         attention1 = output[f"{analysis_method.value}_1"]

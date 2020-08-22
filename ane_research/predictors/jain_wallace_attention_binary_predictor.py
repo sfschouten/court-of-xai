@@ -13,7 +13,7 @@ from allennlp.nn import util
 from allennlp.predictors.predictor import Predictor
 
 from ane_research.interpret.saliency_interpreters.attention import AttentionModelPredictor
-from ane_research.models.modules.attention.attention import AttentionAnalysisMethods
+from ane_research.models.modules.attention.attention import AttentionAnalysisMethods, AttentionAggregator
 
 
 @Predictor.register("jain_wallace_attention_binary_classifier")
@@ -53,8 +53,18 @@ class JWAEDPredictor(Predictor, AttentionModelPredictor):
         label = np.argmax(outputs["class_probabilities"])
         new_instance.add_field("label", LabelField(int(label), skip_indexing=True))
         return [new_instance]
+    
+    @overrides
+    def get_suitable_aggregators(self):
+        return [type(None)]
 
-    def get_attention_based_salience_for_instance(self, labeled_instance: Instance, analysis_method: AttentionAnalysisMethods) -> JsonDict:
+    @overrides
+    def get_attention_based_salience_for_instance(
+            self, 
+            labeled_instance: Instance, 
+            analysis_method: AttentionAnalysisMethods,
+            aggregate_method: None 
+            ) -> JsonDict:
         output = self.predict_instance(labeled_instance, output_attentions=[analysis_method])
         return { "tokens" : output[analysis_method] } 
 
