@@ -29,7 +29,7 @@ local alpha_param_re = "^.*attention\\.activation\\.alpha";
                 "n_heads": 12, 
                 "dim": 768,
                 "activation_function": {
-                        "type": "entmax",
+                        "type": "entmax-alpha",
                         "alpha": 1.5
                 },
                 "dropout": 0.2
