@@ -216,12 +216,10 @@ class AttentionFlow(AttentionAggregator):
         ----------
         attention_matrix: torch.tensor(bs, n_layers, n_heads, seq_length, seq_length)
             Full matrix of attention weights
-        lengths: torch.tensor(bs)
-            Lengths of sequences
 
         Outputs
         -------
-        attention_flow: Tuple[torch.tensor(bs, seq_length)]
+        attention_flow: torch.tensor(bs, seq_length)
             Attention flow weights at the last layer's CLS token
         """
         # Use a single attention graph by averaging all heads
