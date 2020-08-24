@@ -15,8 +15,10 @@ common_util.import_module_and_submodules('allennlp_models')
 #######
 parser = argparse.ArgumentParser()
 parser.add_argument('experiment_keyword', type=str, default='')
+parser.add_argument('--to_compare', nargs='*', type=str, help='The saliency interpreters to compare.')
 args = parser.parse_args()
 #######
+
 
 recent_models = get_most_recent_trained_model_paths()
 for idx, recent_model in enumerate(recent_models):
@@ -32,7 +34,7 @@ for idx, recent_model in enumerate(recent_models):
 
     print(f"Loading {recent_model}.")
 
-    evaluator = Evaluator(model_path = recent_model, calculate_on_init = True, experiment_name=model_type)
+    evaluator = Evaluator(model_path = recent_model, calculate_on_init = True, experiment_name=model_type, to_compare=args.to_compare)
     evaluator.generate_and_save_correlation_data_frames()
     evaluator.generate_and_save_correlation_graphs()
 

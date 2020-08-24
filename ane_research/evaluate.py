@@ -59,7 +59,7 @@ class Evaluator():
       - model_path (str): Path to archived model generated during an AllenNLP training run
       - calculate_on_init (bool, default: False): Calculate feature importance measures and correlations on class initialization
     '''
-    def __init__(self, experiment_name: str, model_path: str, calculate_on_init: bool = False):
+    def __init__(self, experiment_name: str, model_path: str, calculate_on_init: bool = False, to_compare: List = []):
         self.precalculate = calculate_on_init
         self.logger = logging.getLogger(Config.logger_name)
 
@@ -103,20 +103,27 @@ class Evaluator():
         # and instantiate this class from jsonnet files, using the same code AllenNLP uses 
         # to instantiate the training process. 
 
-        self.interpreters = {} 
+        interpreters = {} 
         
-        # self.interpreters['dl_shap'] = CaptumInterpreter(self.predictor, CaptumDeepLiftShap(self.predictor))
-        self.interpreters['g_shap'] = CaptumInterpreter(self.predictor, CaptumGradientShap(self.predictor))
-        # self.interpreters['lime'] = LimeInterpreter(self.predictor, num_samples=250) #lime default is 5000
-        # self.interpreters['loo']  = LeaveOneOut(self.predictor)
-        # self.interpreters['grad'] = SimpleGradient(self.predictor)
-        # self.interpreters['intgrad'] = IntegratedGradient(self.predictor)
+        # interpreters['dl_shap'] = CaptumInterpreter(self.predictor, CaptumDeepLiftShap(self.predictor))
+        interpreters['g_shap'] = CaptumInterpreter(self.predictor, CaptumGradientShap(self.predictor))
+        # interpreters['lime'] = LimeInterpreter(self.predictor, num_samples=250) #lime default is 5000
+        # interpreters['loo']  = LeaveOneOut(self.predictor)
+        # interpreters['grad'] = SimpleGradient(self.predictor)
+        # interpreters['intgrad'] = IntegratedGradient(self.predictor)
                  
         for aggr_type in self.predictor.get_suitable_aggregators():
             for analysis in self.predictor._model.supported_attention_analysis_methods:
                 aggr = aggr_type()
                 name = f'{analysis.value}' + (f'_{aggr.id()}' if aggr else '')
-                self.interpreters[name] = AttentionInterpreter(self.predictor, analysis, aggr)
+                interpreters[name] = AttentionInterpreter(self.predictor, analysis, aggr)
+
+        if to_compare:
+            self.interpreters = {}
+            for key in to_compare:
+                self.interpreters[key] = interpreters[key]
+        else:
+            self.interpreters = interpreters
 
         self.salience_scores = {}
 
