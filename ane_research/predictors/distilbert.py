@@ -12,7 +12,7 @@ import numpy as np
 from overrides import overrides
 import torch
 
-from ane_research.models.modules.attention.attention import AttentionAnalysisMethods, AttentionAggregator, AttentionAverager, AttentionRollout
+from ane_research.models.modules.attention.attention import AttentionAnalysisMethods, AttentionAggregator, AttentionAverager, AttentionRollout, AttentionFlow
 from ane_research.interpret.saliency_interpreters.attention import AttentionModelPredictor
 
 
@@ -53,7 +53,7 @@ class DistilBertForSequenceClassificationPredictor(Predictor, AttentionModelPred
     
     @overrides
     def get_suitable_aggregators(self):
-        return [AttentionAverager, AttentionRollout]
+        return [AttentionAverager, AttentionRollout, AttentionFlow]
 
     @overrides
     def get_attention_based_salience_for_instance(
