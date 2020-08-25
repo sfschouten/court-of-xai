@@ -18,7 +18,42 @@ from allennlp.common.util import JsonDict, sanitize
 from allennlp.data import Instance, Batch
 from allennlp.interpret.saliency_interpreters import SaliencyInterpreter
 
+
 # pylint: disable=E1101
+
+
+# Captum expects the input to the model you are interpreting to be one or more
+# Tensor objects, but AllenNLP Model classes often take Dict[...] objects as
+# their input. To fix this we require the Models that are to be used with Captum
+# to implement a set of methods that make it possible to use Captum.
+class CaptumCompatible():
+
+    def captum_sub_model(self):
+        """
+        Returns a PyTorch nn.Module instance with a forward that performs
+        the same steps as the Model would normally, but starting from word embeddings.
+        As such it accepts FloatTensors as input, which is required for Captum.
+        """
+        raise NotImplementedError()
+
+    def instances_to_captum_inputs(self, *inputs):
+        """
+        Converts a set of Instances to a Tensor suitable to pass to the submodule
+        obtained through captum_sub_model.
+        Returns
+          Tuple with (inputs, target, additional_forward_args)
+          Both inputs and target tensors should have the Batch dimension first.
+          The inputs Tensors should have the Embedding dimension last.
+        """
+        raise NotImplementedError()
+
+    def get_field_names(self) -> Iterable[str]:
+        """
+        """
+        raise NotImplementedError()
+
+
+from ane_research.models.distilbert import DistilBertForSequenceClassification
 
 # Registrable for captum registrations.
 class CaptumAttribution(Registrable):
@@ -77,39 +112,25 @@ class CaptumAttribution(Registrable):
           key-word arguments to be given to the attribute method of the
           relevant Captum Attribution sub-class.
         """
-        raise NotImplementedError()
+        inputs, target, additional = captum_inputs
 
+        vocab = self.predictor._model.vocab
 
+        # Manually check for distilbert.
+        if isinstance(self.predictor._model, DistilBertForSequenceClassification):
+            embedding = self.predictor._model.embeddings 
+        else:
+            embedding = util.find_embedding_layer(self.predictor._model)
+    
+        pad_idx = vocab.get_token_index(vocab._padding_token)
+        pad_idx = torch.LongTensor([[pad_idx]])
+        pad_idxs = tuple(pad_idx.expand(tensor.size()[:2]) for tensor in inputs)
+        baselines = tuple(embedding(idx) for idx in pad_idxs)
 
-# Captum expects the input to the model you are interpreting to be one or more
-# Tensor objects, but AllenNLP Model classes often take Dict[...] objects as
-# their input. To fix this we require the Models that are to be used with Captum
-# to implement a set of methods that make it possible to use Captum.
-class CaptumCompatible():
-
-    def captum_sub_model(self):
-        """
-        Returns a PyTorch nn.Module instance with a forward that performs
-        the same steps as the Model would normally, but starting from word embeddings.
-        As such it accepts FloatTensors as input, which is required for Captum.
-        """
-        raise NotImplementedError()
-
-    def instances_to_captum_inputs(self, *inputs):
-        """
-        Converts a set of Instances to a Tensor suitable to pass to the submodule
-        obtained through captum_sub_model.
-        Returns
-          Tuple with (inputs, target, additional_forward_args)
-          Both inputs and target tensors should have the Batch dimension first.
-          The inputs Tensors should have the Embedding dimension last.
-        """
-        raise NotImplementedError()
-
-    def get_field_names(self) -> Iterable[str]:
-        """
-        """
-        raise NotImplementedError()
+        return {'inputs' : inputs,
+                'target': target,
+                'baselines' : baselines,
+                'additional_forward_args' : additional}
 
 
 @SaliencyInterpreter.register('captum')
@@ -141,14 +162,7 @@ class CaptumDeepLiftShap(CaptumAttribution, DeepLiftShap):
     def id(self):
         return 'dlshap'
 
-    def attribute_kwargs(self, captum_inputs):
-        inputs, target, additional = captum_inputs
-        baselines = tuple(torch.zeros_like(tensor) for tensor in inputs)
-        return {'inputs' : inputs,
-                'target': target,
-                'baselines' : baselines,
-                'additional_forward_args' : additional}
-
+   
 
 # ---GradientShap---
 from captum.attr import GradientShap
@@ -165,12 +179,21 @@ class CaptumGradientShap(CaptumAttribution, GradientShap):
     def id(self):
         return 'gradshap'
 
-    def attribute_kwargs(self, captum_inputs):
-        inputs, target, additional = captum_inputs
-        baselines = tuple(torch.zeros_like(tensor) for tensor in inputs)
-        return {'inputs' : inputs,
-                'baselines' : baselines,
-                'target': target,
-                'additional_forward_args' : additional}
+
+
+# ---Integrated Gradients---
+from captum.attr import IntegratedGradients
+@CaptumAttribution.register('captum-integrated-gradients')
+class CaptumIntegratedGradients(CaptumAttribution, IntegratedGradients):
+
+    def __init__(self, predictor: Predictor):
+
+        CaptumAttribution.__init__(self, predictor)
+
+        self.submodel = self.predictor._model.captum_sub_model()
+        IntegratedGradients.__init__(self, self.submodel)
+
+    def id(self):
+        return 'intgrad'
 
 

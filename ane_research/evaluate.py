@@ -31,7 +31,7 @@ from ane_research.models.modules.attention.attention import AttentionAnalysisMet
 from ane_research.interpret.saliency_interpreters.leave_one_out import LeaveOneOut
 from ane_research.interpret.saliency_interpreters.attention import AttentionInterpreter
 from ane_research.interpret.saliency_interpreters.lime import LimeInterpreter 
-from ane_research.interpret.saliency_interpreters.captum_interpreter import CaptumInterpreter, CaptumDeepLiftShap, CaptumGradientShap
+from ane_research.interpret.saliency_interpreters.captum_interpreter import CaptumInterpreter, CaptumDeepLiftShap, CaptumGradientShap, CaptumIntegratedGradients
 from     allennlp.interpret.saliency_interpreters import SimpleGradient
 from     allennlp.interpret.saliency_interpreters import IntegratedGradient
 
@@ -93,7 +93,7 @@ class Evaluator():
         vocab = self.test_instances.vocab
         self.test_instances = AllennlpDataset(subset, vocab)
 
-        self.batch_size = 16 #self.archive.config.params['data_loader']['batch_sampler']['batch_size']
+        self.batch_size = 8 #self.archive.config.params['data_loader']['batch_sampler']['batch_size']
         self.batched_test_instances = list(batch(self.test_instances, self.batch_size))
         self.average_datapoint_length = self._calculate_average_datapoint_length()
 
@@ -105,11 +105,12 @@ class Evaluator():
 
         interpreters = {} 
         
-        # interpreters['dl_shap'] = CaptumInterpreter(self.predictor, CaptumDeepLiftShap(self.predictor))
+        interpreters['dl_shap'] = CaptumInterpreter(self.predictor, CaptumDeepLiftShap(self.predictor))
         interpreters['g_shap'] = CaptumInterpreter(self.predictor, CaptumGradientShap(self.predictor))
-        # interpreters['lime'] = LimeInterpreter(self.predictor, num_samples=250) #lime default is 5000
-        # interpreters['loo']  = LeaveOneOut(self.predictor)
-        # interpreters['grad'] = SimpleGradient(self.predictor)
+        interpreters['lime'] = LimeInterpreter(self.predictor, num_samples=250) #lime default is 5000
+        interpreters['loo']  = LeaveOneOut(self.predictor)
+        interpreters['grad'] = SimpleGradient(self.predictor)
+        interpreters['intgrad'] = CaptumInterpreter(self.predictor, CaptumIntegratedGradients(self.predictor))
         # interpreters['intgrad'] = IntegratedGradient(self.predictor)
                  
         for aggr_type in self.predictor.get_suitable_aggregators():
@@ -220,7 +221,7 @@ class Evaluator():
             # Only then do correlations not involving attention, using the k value(s) used above.
             k = int(sum(recent_ks.values()) / len(recent_ks.values()))
             for (key1, scoresets1), (key2, scoresets2) in combos: 
-                if 'attn' in key1 and 'attn' in key2:
+                if 'attn' not in key1 and 'attn' not in key2:
                     calc(key1, key2, scoresets1, scoresets2, k=k)
 
         canon_key = next(iter(non_zero_k.keys()))
