@@ -206,20 +206,25 @@ class Evaluator():
                 _, k = self.correlations[(key1, key2)].calculate_kendall_top_k_non_zero_correlation(score1, score2, kIsNonZero=(k==None), p=0.5, class_name=class_name, k=k)
                 non_zero_k[(key1, key2)].append(k)
  
+            at_least_one_attn = False
             # Go over all pairs with attention first. 
             for (key1, scoresets1), (key2, scoresets2) in combos: 
                 if 'attn' in key1 or 'attn' in key2:
                     calc(key1, key2, scoresets1, scoresets2)
-  
-            # Ensure the correlation calculation between the saliency interpreters and attention interpreter
-            # uses the same k value for the kendall_top_k calculation
-            recent_ks = { (key1,key2): ks[-1] for (key1, key2), ks in non_zero_k.items() if 'attn' in key1 or 'attn' in key2 }
-            if len(set(recent_ks.values())) > 1:
-                self.logger.warning(f"Not all k values used were the same across the different comparison pairs!")
-                self.logger.info(recent_ks)
+                    at_least_one_attn = True
 
-            # Only then do correlations not involving attention, using the k value(s) used above.
-            k = int(sum(recent_ks.values()) / len(recent_ks.values()))
+            k = None
+            if at_least_one_attn:
+                # Ensure the correlation calculation between the saliency interpreters and attention interpreter
+                # uses the same k value for the kendall_top_k calculation
+                recent_ks = { (key1,key2): ks[-1] for (key1, key2), ks in non_zero_k.items() if 'attn' in key1 or 'attn' in key2 }
+                if len(set(recent_ks.values())) > 1:
+                    self.logger.warning(f"Not all k values used were the same across the different comparison pairs!")
+                    self.logger.info(recent_ks)
+
+                # Only then do correlations not involving attention, using the k value(s) used above.
+                k = int(sum(recent_ks.values()) / len(recent_ks.values()))
+
             for (key1, scoresets1), (key2, scoresets2) in combos: 
                 if 'attn' not in key1 and 'attn' not in key2:
                     calc(key1, key2, scoresets1, scoresets2, k=k)
@@ -256,4 +261,3 @@ class Evaluator():
             plotting.annotate(ax=axes, title=plot_title)
             plotting.adjust_gridspec()
             plotting.save_axis_in_file(fig, axes, self.graph_path, plot_title)
-
