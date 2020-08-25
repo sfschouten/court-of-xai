@@ -123,7 +123,7 @@ class CaptumAttribution(Registrable):
             embedding = util.find_embedding_layer(self.predictor._model)
     
         pad_idx = vocab.get_token_index(vocab._padding_token)
-        pad_idx = torch.LongTensor([[pad_idx]])
+        pad_idx = torch.LongTensor([[pad_idx]]).to(inputs[0].device)
         pad_idxs = tuple(pad_idx.expand(tensor.size()[:2]) for tensor in inputs)
         baselines = tuple(embedding(idx) for idx in pad_idxs)
 
