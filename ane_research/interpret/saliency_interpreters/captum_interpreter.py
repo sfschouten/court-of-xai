@@ -197,3 +197,19 @@ class CaptumIntegratedGradients(CaptumAttribution, IntegratedGradients):
         return 'intgrad'
 
 
+# ---DeepLift---
+from captum.attr import DeepLift 
+@CaptumAttribution.register('captum-deeplift')
+class CaptumDeepLift(CaptumAttribution, DeepLift):
+
+    def __init__(self, predictor: Predictor):
+
+        CaptumAttribution.__init__(self, predictor)
+
+        self.submodel = self.predictor._model.captum_sub_model()
+        DeepLift.__init__(self, self.submodel)
+
+    def id(self):
+        return 'deeplift'
+
+

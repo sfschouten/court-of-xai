@@ -31,7 +31,7 @@ from ane_research.models.modules.attention.attention import AttentionAnalysisMet
 from ane_research.interpret.saliency_interpreters.leave_one_out import LeaveOneOut
 from ane_research.interpret.saliency_interpreters.attention import AttentionInterpreter
 from ane_research.interpret.saliency_interpreters.lime import LimeInterpreter 
-from ane_research.interpret.saliency_interpreters.captum_interpreter import CaptumInterpreter, CaptumDeepLiftShap, CaptumGradientShap, CaptumIntegratedGradients
+from ane_research.interpret.saliency_interpreters.captum_interpreter import CaptumInterpreter, CaptumDeepLiftShap, CaptumGradientShap, CaptumIntegratedGradients, CaptumDeepLift
 from     allennlp.interpret.saliency_interpreters import SimpleGradient
 from     allennlp.interpret.saliency_interpreters import IntegratedGradient
 
@@ -107,6 +107,7 @@ class Evaluator():
         
         interpreters['dl_shap'] = CaptumInterpreter(self.predictor, CaptumDeepLiftShap(self.predictor))
         interpreters['g_shap'] = CaptumInterpreter(self.predictor, CaptumGradientShap(self.predictor))
+        interpreters['deeplift'] = CaptumInterpreter(self.predictor, CaptumDeepLift(self.predictor))
         interpreters['lime'] = LimeInterpreter(self.predictor, num_samples=250) #lime default is 5000
         interpreters['loo']  = LeaveOneOut(self.predictor)
         interpreters['grad'] = SimpleGradient(self.predictor)
