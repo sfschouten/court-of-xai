@@ -119,6 +119,8 @@ class EntmaxAlphaActivation(AttentionActivationFunction):
         Returns:
             torch.Tensor: Distribution resulting from entmax with specified alpha
         """
+        # Entmax is only defined for alpha >= 1
         self.alpha.data = torch.clamp(self.alpha.data, min=1.0)
+
         masked_scores = replace_masked_values(scores, mask, -float("inf"))
         return entmax_bisect(masked_scores, self.alpha, dim=-1)
