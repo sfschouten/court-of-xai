@@ -1,7 +1,6 @@
 from typing import List, Dict, Union, Iterable
 
-from lime import lime_text
-from lime.lime_text import LimeTextExplainer
+from ane_research.interpret.saliency_interpreters.modules.lime_allennlp_instance import LimeAllenNLPInstanceExplainer
 
 import numpy
 import itertools
@@ -25,7 +24,7 @@ class LimeInterpreter(SaliencyInterpreter):
         super().__init__(predictor)
 
         self._id = 'lime'
-        self.explainer = LimeTextExplainer(bow=False, split_expression=r'\s+')
+        self.explainer = LimeAllenNLPInstanceExplainer(bow=False, split_expression=r'\s+')
         self.num_samples = num_samples
 
     @property
@@ -41,8 +40,21 @@ class LimeInterpreter(SaliencyInterpreter):
 
         return sanitize(instances_with_lime)
 
-
     def _lime(self, instance: Instance) -> List[float]:
+        fields = self.predictor._model.get_field_names()
+        nr_tokens = sum( len(instance[field]) for field in fields )
+        label = int(instance['label'].label)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", category=FutureWarning)
+            explanation = self.explainer.explain_instance(
+                    instance,
+                    self.predictor._model,
+                    labels=(label,),
+                    num_features=nr_tokens + len(fields) - 1, # account for the separator token
+                    num_samples=self.num_samples)
+
+
+    def _lime2(self, instance: Instance) -> List[float]:
         """
         Calculates LIME attribution for the given Instance.
 
