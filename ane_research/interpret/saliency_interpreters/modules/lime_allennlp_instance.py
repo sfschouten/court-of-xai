@@ -230,6 +230,8 @@ class LimeAllenNLPInstanceExplainer(object):
             return sklearn.metrics.pairwise.pairwise_distances(
                 x, x[0], metric=distance_metric).ravel() * 100
 
+        BATCH_SIZE = 16
+
         vocab = model.vocab
         pad_token = vocab.get_token_index(vocab._padding_token)
         
@@ -277,7 +279,13 @@ class LimeAllenNLPInstanceExplainer(object):
         data = np.concatenate(tuple(data[key] for key in reversed(list(data.keys()))), axis=1)
 
         # TODO batched forward
-        results = model.forward_on_instances(inverse_data)
+
+        batches = (itertools.islice(inverse_data, x, x+BATCH_SIZE) for x in range(0, len(inverse_data), BATCH_SIZE))
+        results = []
+        for idx, batch in enumerate(batches):
+            batch = list(batch)
+            results.extend(model.forward_on_instances(batch))
+
         class_probs = np.asarray([ result['class_probabilities'] for result in results ])
         distances = distance_fn(sp.sparse.csr_matrix(data))
 
