@@ -6,6 +6,7 @@ import itertools
 import json
 import re
 
+import torch
 import numpy as np
 import scipy as sp
 import sklearn
@@ -244,8 +245,10 @@ class LimeAllenNLPInstanceExplainer(object):
 
             doc_size = len(field)
             doc_sizes[key] = doc_size 
-            
-            samples[key] = self.random_state.randint(1, doc_size + 1, num_samples - 1)
+           
+            # TODO verify that doc_size is fine (was doc_size + 1), got nan 
+            # values for cases where all tokens were removed.
+            samples[key] = self.random_state.randint(1, doc_size, num_samples - 1)
             data[key] = np.ones((num_samples, doc_size))
             data[key][0] = np.ones(doc_size)
             features_ranges[key] = range(doc_size)
@@ -271,12 +274,11 @@ class LimeAllenNLPInstanceExplainer(object):
 
             inverse_data.append(removed)
 
-        # TODO batched forward
-        data = np.concatenate(tuple(data[key] for key in data.keys()), axis=1)
+        data = np.concatenate(tuple(data[key] for key in reversed(list(data.keys()))), axis=1)
 
+        # TODO batched forward
         results = model.forward_on_instances(inverse_data)
         class_probs = np.asarray([ result['class_probabilities'] for result in results ])
         distances = distance_fn(sp.sparse.csr_matrix(data))
-        print(data)
-        print(class_probs)
+
         return data, class_probs, distances

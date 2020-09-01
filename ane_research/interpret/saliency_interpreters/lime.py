@@ -53,6 +53,11 @@ class LimeInterpreter(SaliencyInterpreter):
                     num_features=nr_tokens + len(fields) - 1, # account for the separator token
                     num_samples=self.num_samples)
 
+        exp_list = explanation.local_exp[label]
+        exp_list.sort(key=lambda x: x[0]) # sort by index
+
+        exp_list = [abs(x[1]) for x in exp_list]
+        return exp_list
 
     def _lime2(self, instance: Instance) -> List[float]:
         """
