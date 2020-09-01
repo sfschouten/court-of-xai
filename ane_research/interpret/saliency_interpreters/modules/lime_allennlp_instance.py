@@ -230,8 +230,6 @@ class LimeAllenNLPInstanceExplainer(object):
             return sklearn.metrics.pairwise.pairwise_distances(
                 x, x[0], metric=distance_metric).ravel() * 100
 
-        BATCH_SIZE = 16
-
         vocab = model.vocab
         pad_token = vocab.get_token_index(vocab._padding_token)
         
@@ -269,17 +267,20 @@ class LimeAllenNLPInstanceExplainer(object):
                 inactive = self.random_state.choice(features_range, size, replace=False)
                 
                 data[field_key][i, inactive] = 0
-
+                
                 for idxr, tokenlist in removed[field_key]._indexed_tokens.items():
                     for j in inactive:
-                        tokenlist["tokens"][j] = pad_token
+                        for key in tokenlist.keys():
+                            # TODO: this (use fields with 'token') is too brittle, 
+                            # should make model/predictor implement interface that exposes the name of the relevant field.
+                            if 'token' in key:
+                                tokenlist[key][j] = pad_token
 
             inverse_data.append(removed)
 
         data = np.concatenate(tuple(data[key] for key in reversed(list(data.keys()))), axis=1)
 
-        # TODO batched forward
-
+        BATCH_SIZE = 16
         batches = (itertools.islice(inverse_data, x, x+BATCH_SIZE) for x in range(0, len(inverse_data), BATCH_SIZE))
         results = []
         for idx, batch in enumerate(batches):
