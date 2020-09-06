@@ -229,7 +229,7 @@ class DistilBertForSequenceClassification(Model, CaptumCompatible):
     def forward(
         self,
         tokens: TextFieldTensors,
-        label: Union[torch.Tensor, None],
+        label: Optional[torch.Tensor] = None,
         output_attentions: Optional[List[AttentionAnalysisMethods]] = None
     ) -> JsonDict:
         # https://docs.python-guide.org/writing/gotchas/#mutable-default-arguments
@@ -325,10 +325,9 @@ class DistilBertForSequenceClassification(Model, CaptumCompatible):
             label = model_input["label"]
             attention_mask = model_input["tokens"]["tokens"]["mask"]
             embedded_tokens = self.embeddings(input_ids)
-
             output_dict = {}
             output_dict["embedding"] = embedded_tokens
-            return (embedded_tokens,), label, (attention_mask, output_dict)
+            return (embedded_tokens,), label, (attention_mask, label, output_dict)
 
 class _CaptumSubModel(torch.nn.Module):
 
@@ -337,14 +336,7 @@ class _CaptumSubModel(torch.nn.Module):
         self.model = model
 
     @overrides
-    def forward(self,
-        embedded_tokens: torch.Tensor,
-        attention_mask: torch.Tensor,
-        output_dict: JsonDict
-    ):
-        return self.model.forward_inner(
-            embedded_tokens=embedded_tokens,
-            attention_mask=attention_mask,
-            output_attentions=None,
-            output_dict=output_dict
-        )
+    def forward(self, *inputs):
+        # (embedded_tokens, attention_mask, label, output_dict)
+        inputs_no_attention = inputs[:3]+(None,)+inputs[3:]
+        return self.model.forward_inner(*inputs_no_attention)
