@@ -24,3 +24,8 @@ def write_frame(
     frame.to_pickle(os.path.join(os.path.join(base_path, name + '.pkl')))
     with open(os.path.join(os.path.join(base_path, name + '.csv')), 'w+') as handle:
         frame.to_csv(handle)
+
+def model_already_trained(
+    base_path: PathLike
+) -> bool:
+    return os.path.isfile(os.path.join(base_path, 'model.tar.gz'))

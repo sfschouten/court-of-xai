@@ -15,6 +15,7 @@ from allennlp.commands.subcommand import Subcommand
 from allennlp.commands.train import train_model
 from overrides import overrides
 
+import ane_research.common.utils as utils
 from ane_research.config import Config
 from ane_research.experiments.attention_correlation.experiment import AttentionCorrelationExperiment
 from ane_research.experiments.attention_correlation.trial import AttentionCorrelationTrial
@@ -148,7 +149,7 @@ def run_trial(
 
     trial_dir = os.path.join(serialization_dir, f"seed_{seed}")
 
-    should_train = force or not AttentionCorrelationTrial.already_ran(trial_dir)
+    should_train = force or not utils.model_already_trained(trial_dir)
 
     if should_train:
         _train_params['random_seed'] = seed
