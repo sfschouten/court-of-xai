@@ -72,7 +72,7 @@ local batch_size = 64;
             {
                 "type": "captum",
                 "captum": "captum-integrated-gradients"
-            }
+            },
             {
                 "type": "captum",
                 "captum": "captum-deepliftshap"

@@ -63,7 +63,7 @@ local transformer_model = "distilbert-base-uncased";
             {
                 "type": "captum",
                 "captum": "captum-integrated-gradients"
-            }
+            },
             {
                 "type": "captum",
                 "captum": "captum-deepliftshap"

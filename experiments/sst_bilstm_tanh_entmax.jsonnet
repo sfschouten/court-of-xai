@@ -79,7 +79,7 @@ local alpha_param_re = "^.*attention\\.activation\\.alpha";
             {
                 "type": "captum",
                 "captum": "captum-integrated-gradients"
-            }
+            },
             {
                 "type": "captum",
                 "captum": "captum-deepliftshap"
