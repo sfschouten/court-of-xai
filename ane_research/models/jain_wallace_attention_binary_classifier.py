@@ -32,6 +32,7 @@ class JWAED(Model, CaptumCompatible):
         self.encoder = encoder
         self.attention = attention
         self.decoder = decoder
+
         self.metrics = {
             "accuracy": CategoricalAccuracy(),
             "f1_measure": F1Measure(positive_label=1),
@@ -93,7 +94,7 @@ class JWAED(Model, CaptumCompatible):
         embedded_tokens = self.word_embeddings(tokens)
         output_dict["embedding"] = embedded_tokens
 
-        prediction = self.forward_inner(embedded_tokens, tokens_mask, output_attentions, output_dict)
+        prediction = self.forward_inner(embedded_tokens, tokens_mask, output_attentions, output_dict) # (bs, 1)
         output_dict["prediction"] = prediction
 
         class_probabilities = torch.cat((1 - prediction, prediction), dim=1)
@@ -102,6 +103,7 @@ class JWAED(Model, CaptumCompatible):
         # A label is not necessary to perform a forward pass. There are situations where you don"t have a label,
         # such as in a demo or when this model is a component in a larger model
         if label is not None:
+            output_dict["actual"] = label
             loss = self.loss(output_dict["logits"], label.unsqueeze(-1).float())
             output_dict["loss"] = loss
             self.metrics["accuracy"](class_probabilities, label)

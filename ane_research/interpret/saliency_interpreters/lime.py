@@ -24,8 +24,13 @@ class LimeInterpreter(SaliencyInterpreter):
     def __init__(self, predictor: Predictor, num_samples: int = 250) -> None:
         super().__init__(predictor)
 
+        self._id = 'lime'
         self.explainer = LimeTextExplainer(bow=False, split_expression=r'\s+')
         self.num_samples = num_samples
+
+    @property
+    def id(self):
+        return self._id
 
     def saliency_interpret_instances(self, labeled_instances: Iterable[Instance]) -> JsonDict:
         instances_with_lime = dict()

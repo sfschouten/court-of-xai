@@ -99,7 +99,7 @@ class PairSequenceClassifier(Model, CaptumCompatible):
             label2 = label.unsqueeze(-1).expand(B, nr_classes)
 
             mask = torch.arange(nr_classes, device=logits.device).unsqueeze(0).expand(*probs.shape) == label2
-            preds = probs[mask]
+            preds = probs[mask].unsqueeze(-1) # (bs, 1)
             return preds
 
 
@@ -142,6 +142,7 @@ class PairSequenceClassifier(Model, CaptumCompatible):
         # A label is not necessary to perform a forward pass. There are situations where you don't have a label,
         # such as in a demo or when this model is a component in a larger model
         if label is not None:
+            output_dict["actual"] = label
             loss = self.loss(output_dict["logits"], label)
             output_dict["loss"] = loss
             self.metrics["accuracy"](class_probabilities, label)
