@@ -327,7 +327,7 @@ class DistilBertForSequenceClassification(Model, CaptumCompatible):
             embedded_tokens = self.embeddings(input_ids)
             output_dict = {}
             output_dict["embedding"] = embedded_tokens
-            return (embedded_tokens,), label, (attention_mask, label, output_dict)
+            return (embedded_tokens,), None, (attention_mask, label, output_dict)
 
 class _CaptumSubModel(torch.nn.Module):
 
