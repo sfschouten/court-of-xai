@@ -134,61 +134,43 @@ class AttentionCorrelationExperiment(Registrable):
         summary = self.correlation
         summary['accuracy'] = summary['predicted'] == summary['actual']
         summary['accuracy'] = summary['accuracy'].astype(float)
-        summary['fraction_significant'] = summary['p_val'].apply(lambda p: p < 0.05)
-        summary = summary.drop(['predicted', 'instance_fields', 'instance_text', 'p_val'], axis=1)
+
+        if "p_val" in summary.columns:
+            summary['p_val'] = summary['p_val'].apply(lambda p: p < 0.05)
+        summary = summary.drop(['predicted', 'instance_fields', 'instance_text'], axis=1)
+
+        # Average for each trial
         summary = summary.groupby(['feature_importance_measure', 'attention_measure', 'seed', 'actual'], as_index = False)
-        summary = summary.agg({
-            'fraction_significant': ['mean'],
-            'kendall_tau': ['mean'],
-            'kendall_top_k_average_length': ['mean'],
-            'k_average_length': ['mean'],
-            'kendall_top_k_non_zero': ['mean'],
-            'k_non_zero': ['mean'],
-            'instance_id': ['count'],
-            'accuracy': ['mean'],
-        })
-        summary.columns = [
+        agg_by_seed = {f: ['mean'] for cm in self.correlation_measures for f in cm.fields}
+        agg_by_seed['instance_id'] = ['count']
+        agg_by_seed['accuracy'] = ['mean']
+        agg_by_seed_columns = [
             'feature_importance_measure',
             'attention_measure',
             'seed',
-            'class',
-            'fraction_significant',
-            'kendall_tau',
-            'kendall_top_k_average_length',
-            'k_average_length',
-            'kendall_top_k_non_zero',
-            'k_non_zero',
-            'num_instances',
-            'accuracy'
+            'class'
         ]
+        agg_by_seed_columns.extend([f for cm in self.correlation_measures for f in cm.fields])
+        agg_by_seed_columns.extend(['instance_id', 'accuracy'])
+        summary = summary.agg(agg_by_seed)
+        summary.columns = agg_by_seed_columns
+
+        # Average, std across trials
         summary = summary.groupby(['feature_importance_measure', 'attention_measure', 'class'],  as_index=False)
-        summary = summary.agg({
-            'fraction_significant': ['mean', 'std'],
-            'kendall_tau': ['mean', 'std'],
-            'kendall_top_k_average_length': ['mean', 'std'],
-            'k_average_length': ['mean'],
-            'kendall_top_k_non_zero': ['mean', 'std'],
-            'k_non_zero': ['mean'],
-            'num_instances': ['mean'],
-            'accuracy': ['mean']
-        })
-        summary.columns = [
+        agg_by_class = {f: ['mean', 'std'] for cm in self.correlation_measures for f in cm.fields}
+        agg_by_class['instance_id'] = ['mean']
+        agg_by_class['accuracy'] = ['mean', 'std']
+        agg_by_class_columns = [
             'feature_importance_measure',
             'attention_measure',
-            'class',
-            'fraction_significant_mean',
-            'fraction_significant_std',
-            'kendall_tau_mean',
-            'kendall_tau_std',
-            'kendall_top_k_average_length_mean',
-            'kendall_top_k_average_length_std',
-            'k_average_length_mean',
-            'kendall_top_k_non_zero_mean',
-            'kendall_top_k_non_zero_std',
-            'k_non_zero_mean',
-            'num_instances',
-            'accuracy'
+            'class'
         ]
+        agg_by_class_columns.extend([f'{f}_{agg}' for cm in self.correlation_measures for f in cm.fields for agg in ['mean', 'std']])
+        agg_by_class_columns.extend(['instance_count', 'accuracy_mean', 'accuracy_std'])
+        summary = summary.agg(agg_by_class)
+        summary.columns = agg_by_class_columns
+        if "p_val" in summary.columns:
+            summary = summary.rename(columns={"p_val": "fraction_significant"})
         self.summary = summary
 
     def generate_artifacts(self):
