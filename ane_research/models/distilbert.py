@@ -211,8 +211,8 @@ class DistilBertForSequenceClassification(Model, CaptumCompatible):
             # Stack to single tuple of (bs, n_layers, ...,  seq_length)
             attentions = encoder_output[1]
 
-            for label in output_attentions:
-                output_dict[label] = torch.stack(attentions[label], dim=1)
+            for analysis_method in output_attentions:
+                output_dict[analysis_method] = torch.stack(attentions[analysis_method], dim=1)
 
         class_probabilities = torch.nn.Softmax(dim=-1)(logits)
         output_dict["class_probabilities"] = class_probabilities
