@@ -169,8 +169,14 @@ class AttentionCorrelationExperiment(Registrable):
         agg_by_class_columns.extend(['instance_count', 'accuracy_mean', 'accuracy_std'])
         summary = summary.agg(agg_by_class)
         summary.columns = agg_by_class_columns
-        if "p_val" in summary.columns:
-            summary = summary.rename(columns={"p_val": "fraction_significant"})
+        if "p_val_mean" in summary.columns:
+            summary = summary.rename(columns={"p_val_mean": "fraction_significant_mean"})
+        if "p_val_std" in summary.columns:
+            summary = summary.rename(columns={"p_val_std": "fraction_significant_std"})
+        if "k_average_length_mean" in summary.columns:
+            summary = summary.rename(columns={"k_average_length_mean": "k_average_length"})
+        if "k_average_length_std" in summary.columns:
+            summary = summary.drop(["k_average_length_std"], axis=1)
         self.summary = summary
 
     def generate_artifacts(self):
