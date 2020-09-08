@@ -53,7 +53,7 @@ class JWAEDPredictor(Predictor, AttentionModelPredictor):
         label = np.argmax(outputs["class_probabilities"])
         new_instance.add_field("label", LabelField(int(label), skip_indexing=True))
         return [new_instance]
-    
+
     @overrides
     def get_suitable_aggregators(self):
         return [type(None)]

@@ -15,17 +15,18 @@ class AttentionModelPredictor():
     """
 
     def get_attention_based_salience_for_instance(
-            labeled_instance: Instance, 
-            analysis_method: AttentionAnalysisMethods,
-            aggregate_method: AttentionAggregator
-        ) -> Dict[str, Iterable[float]]:
+        self,
+        labeled_instance: Instance, 
+        analysis_method: AttentionAnalysisMethods,
+        aggregate_method: AttentionAggregator
+    ) -> Dict[str, Iterable[float]]:
         """
         Returns a dictionary with for each TextField in the instance, an iterable with the attention paid
         to the tokens in that field.
         """
         raise NotImplementedError()
 
-    def get_suitable_aggregators() -> Iterable[Type[Union[None, AttentionAggregator]]]:
+    def get_suitable_aggregators(self) -> Iterable[Type[Union[None, AttentionAggregator]]]:
         """
         Returns one or more suitable aggregator types, if no aggregation is necessary the iterable 
         should include NoneType.
@@ -56,6 +57,12 @@ class AttentionInterpreter(SaliencyInterpreter):
         
         self.aggregate_method = aggregate_method
 
+        agg_method = f"{self.aggregate_method.id}_" if self.aggregate_method else ""
+        self._id = f"attn_{agg_method}{self.analysis_method.value}"
+
+    @property
+    def id(self):
+       return self._id
 
     def saliency_interpret_instances(self, labeled_instances: Iterable[Instance]) -> JsonDict:
         instances_with_attn = dict()

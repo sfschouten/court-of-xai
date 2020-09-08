@@ -10,17 +10,21 @@ import torch.nn.functional as F
 
 
 class AttentionAnalysisMethods(Enum):
-    """Defines the possible methods for analyzing attention."""
+    """Defines the possible methods for analyzing attention scores."""
 
     # Raw attention weights
-    weight_based = 'attn_weights'
+    weight_based = 'weights'
     # Weighted vector norms as described by Kobayashi et al. 2020 (arXiv 2004.10102)
-    norm_based   = 'attn_norm'
+    norm_based   = 'norm'
 
 class AttentionAggregator(Registrable):
 
+    def __init__(self, identifier: str):
+        self._id = identifier
+
+    @property
     def id(self):
-        raise NotImplementedError("Implement the id method")
+        return self._id
 
     def aggregate(self, attention_matrix: torch.Tensor) -> torch.Tensor:
         """
@@ -35,8 +39,8 @@ class AttentionAggregator(Registrable):
 @AttentionAggregator.register("attention-averager")
 class AttentionAverager(AttentionAggregator):
 
-    def id(self):
-        return "avg"
+    def __init__(self):
+        super().__init__(identifier="avg")
 
     def aggregate(self, attention: torch.Tensor) -> torch.Tensor:
         """
@@ -57,8 +61,8 @@ class AttentionAverager(AttentionAggregator):
 @AttentionAggregator.register("attention-rollout")
 class AttentionRollout(AttentionAggregator):
 
-    def id(self):
-        return "roll"
+    def __init__(self):
+        super().__init__(identifier="roll")
 
     def aggregate(self, attention_matrix: torch.Tensor) -> torch.Tensor:
         """
@@ -117,8 +121,8 @@ class AttentionRollout(AttentionAggregator):
 @AttentionAggregator.register("attention-flow")
 class AttentionFlow(AttentionAggregator):
 
-    def id(self):
-        return "flow"
+    def __init__(self):
+        super().__init__(identifier="flow")
 
     def _build_adjacency_matrix(self, avg_heads_attn_matrix: torch.Tensor) -> Tuple[torch.Tensor, Dict[str, int]]:
         """

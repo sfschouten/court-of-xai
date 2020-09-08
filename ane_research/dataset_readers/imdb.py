@@ -19,9 +19,9 @@ class ImdbCsvDatasetReader(DatasetReader):
     pretrained_tokenizer: str = None,
     token_indexers: Dict[str, TokenIndexer] = None,
     max_review_length: int = None,
-    lazy: bool = False
+    **kwargs,
   ):
-    super().__init__(lazy=lazy)
+    super().__init__(**kwargs)
     self.max_review_length = max_review_length
     self.pretrained_tokenizer = pretrained_tokenizer
 

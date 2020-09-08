@@ -7,7 +7,7 @@ Allen NLP compatibility code taken from https://github.com/allenai/allennlp/pull
 
 from copy import deepcopy
 import math
-from typing import Dict, List, Optional, Iterable
+from typing import Dict, List, Optional, Iterable, Union
 
 from allennlp.data.batch import Batch
 from allennlp.common import FromParams, JsonDict
@@ -183,6 +183,7 @@ class DistilBertForSequenceClassification(Model, CaptumCompatible):
     def forward_inner(self,
         embedded_tokens: torch.Tensor,
         attention_mask: torch.Tensor,
+        label: Union[torch.Tensor, None],
         output_attentions: List[AttentionAnalysisMethods],
         output_dict: JsonDict
     ) -> torch.Tensor:
@@ -214,13 +215,21 @@ class DistilBertForSequenceClassification(Model, CaptumCompatible):
                 output_dict[label] = torch.stack(attentions[label], dim=1)
 
         class_probabilities = torch.nn.Softmax(dim=-1)(logits)
-        return class_probabilities
+        output_dict["class_probabilities"] = class_probabilities
+
+        if label is not None:
+            nr_classes = len(self.vocab.get_index_to_token_vocabulary("labels").values())
+            B, = label.shape
+            label2 = label.unsqueeze(-1).expand(B, nr_classes)
+            mask = torch.arange(nr_classes, device=logits.device).unsqueeze(0).expand(*class_probabilities.shape) == label2
+            prediction = class_probabilities[mask].unsqueeze(-1) # (bs, 1)
+            return prediction
 
     @overrides
     def forward(
         self,
         tokens: TextFieldTensors,
-        label: torch.LongTensor = None,
+        label: Optional[torch.Tensor] = None,
         output_attentions: Optional[List[AttentionAnalysisMethods]] = None
     ) -> JsonDict:
         # https://docs.python-guide.org/writing/gotchas/#mutable-default-arguments
@@ -233,18 +242,23 @@ class DistilBertForSequenceClassification(Model, CaptumCompatible):
         attention_mask = util.get_text_field_mask(tokens) # (bs, seq_len)
 
         embedding_output = self.embeddings(input_ids) # (bs, seq_len, dim)
-        class_probabilities = self.forward_inner(
+
+        prediction = self.forward_inner(
             embedded_tokens=embedding_output,
             attention_mask=attention_mask,
+            label=label,
             output_attentions=output_attentions,
             output_dict=output_dict
         )
-        output_dict["class_probabilities"] = class_probabilities
+
+        if prediction is not None:
+            output_dict["prediction"] = prediction
 
         if label is not None:
+            output_dict["actual"] = label
             loss = self.loss(output_dict["logits"].view(-1, self.num_labels), label.view(-1))
             output_dict['loss'] = loss
-            self.metrics['accuracy'](class_probabilities, label)
+            self.metrics['accuracy'](output_dict["class_probabilities"], label)
 
         return output_dict
 
@@ -311,10 +325,9 @@ class DistilBertForSequenceClassification(Model, CaptumCompatible):
             label = model_input["label"]
             attention_mask = model_input["tokens"]["tokens"]["mask"]
             embedded_tokens = self.embeddings(input_ids)
-
             output_dict = {}
             output_dict["embedding"] = embedded_tokens
-            return (embedded_tokens,), label, (attention_mask, output_dict)
+            return (embedded_tokens,), label, (attention_mask, label, output_dict)
 
 class _CaptumSubModel(torch.nn.Module):
 
@@ -323,14 +336,7 @@ class _CaptumSubModel(torch.nn.Module):
         self.model = model
 
     @overrides
-    def forward(self,
-        embedded_tokens: torch.Tensor,
-        attention_mask: torch.Tensor,
-        output_dict: JsonDict
-    ):
-        return self.model.forward_inner(
-            embedded_tokens=embedded_tokens,
-            attention_mask=attention_mask,
-            output_attentions=None,
-            output_dict=output_dict
-        )
+    def forward(self, *inputs):
+        # (embedded_tokens, attention_mask, label, output_dict)
+        inputs_no_attention = inputs[:3]+(None,)+inputs[3:]
+        return self.model.forward_inner(*inputs_no_attention)

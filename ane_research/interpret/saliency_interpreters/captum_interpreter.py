@@ -58,7 +58,8 @@ from ane_research.models.distilbert import DistilBertForSequenceClassification
 # Registrable for captum registrations.
 class CaptumAttribution(Registrable):
 
-    def __init__(self, predictor: Predictor):
+    def __init__(self, identifier: str, predictor: Predictor):
+        self._id = identifier
         self.predictor = predictor
 
         if not isinstance(self.predictor._model, CaptumCompatible):
@@ -94,15 +95,13 @@ class CaptumAttribution(Registrable):
                 explanation = token_attr[idx].tolist()[:sequence_length]
 
                 # this should be the same order as returned by get_field_names
-                instances_with_captum_attr[f'instance_{idx+1}'][f"{self.id()}_scores_{field_idx}"] = explanation
+                instances_with_captum_attr[f'instance_{idx+1}'][f"{self.id}_scores_{field_idx}"] = explanation
 
         return sanitize(instances_with_captum_attr)
 
+    @property
     def id(self):
-        """
-        Returns a short identifier for the type of attribution calculated in this class.
-        """
-        raise NotImplementedError()
+        return self._id
 
     def attribute_kwargs(self, captum_inputs):
         """
@@ -140,6 +139,11 @@ class CaptumInterpreter(SaliencyInterpreter):
         super().__init__(predictor)
 
         self.captum = captum
+        self._id = self.captum.id
+
+    @property
+    def id(self):
+        return self._id
 
     def saliency_interpret_instances(self, labeled_instances: Iterable[Instance]) -> JsonDict:
         return self.captum.saliency_interpret_instances(labeled_instances)
@@ -154,15 +158,11 @@ class CaptumDeepLiftShap(CaptumAttribution, DeepLiftShap):
 
     def __init__(self, predictor: Predictor):
 
-        CaptumAttribution.__init__(self, predictor)
+        CaptumAttribution.__init__(self, 'dlshap', predictor)
 
         self.submodel = self.predictor._model.captum_sub_model()
         DeepLiftShap.__init__(self, self.submodel)
 
-    def id(self):
-        return 'dlshap'
-
-   
 
 # ---GradientShap---
 from captum.attr import GradientShap
@@ -171,14 +171,10 @@ class CaptumGradientShap(CaptumAttribution, GradientShap):
 
     def __init__(self, predictor: Predictor):
 
-        CaptumAttribution.__init__(self, predictor)
+        CaptumAttribution.__init__(self, 'gradshap', predictor)
 
         self.submodel = self.predictor._model.captum_sub_model()
         GradientShap.__init__(self, self.submodel)
-
-    def id(self):
-        return 'gradshap'
-
 
 
 # ---Integrated Gradients---
@@ -188,13 +184,11 @@ class CaptumIntegratedGradients(CaptumAttribution, IntegratedGradients):
 
     def __init__(self, predictor: Predictor):
 
-        CaptumAttribution.__init__(self, predictor)
+        CaptumAttribution.__init__(self, 'intgrad', predictor)
 
         self.submodel = self.predictor._model.captum_sub_model()
         IntegratedGradients.__init__(self, self.submodel)
 
-    def id(self):
-        return 'intgrad'
 
 
 # ---DeepLift---
@@ -204,12 +198,7 @@ class CaptumDeepLift(CaptumAttribution, DeepLift):
 
     def __init__(self, predictor: Predictor):
 
-        CaptumAttribution.__init__(self, predictor)
+        CaptumAttribution.__init__(self, 'deeplift', predictor)
 
         self.submodel = self.predictor._model.captum_sub_model()
         DeepLift.__init__(self, self.submodel)
-
-    def id(self):
-        return 'deeplift'
-
-

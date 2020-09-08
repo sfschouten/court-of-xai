@@ -1,1 +1,3 @@
 from ane_research.predictors.jain_wallace_attention_binary_predictor import JWAEDPredictor
+from ane_research.predictors.pair_sequence_predictor import PairSequencePredictor
+from ane_research.predictors.distilbert import DistilBertForSequenceClassificationPredictor
