@@ -83,9 +83,6 @@ local transformer_model = "distilbert-base-uncased";
             },
             {
                 "type": "kendall_top_k_average_length"
-            },
-            {
-                "type": "kendall_top_k_non_zero"
             }
         ],
         "dataset": "SST",
