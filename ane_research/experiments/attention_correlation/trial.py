@@ -101,7 +101,7 @@ class AttentionCorrelationTrial(Registrable):
                 attention_interpreters.append(AttentionInterpreter(self.predictor, analysis, aggregator))
         return attention_interpreters
 
-    def calculate_feature_importance(self) -> None:
+    def _calculate_feature_importance(self) -> None:
 
         # Write to dataframe in case we want to generate heatmaps
 
@@ -148,7 +148,7 @@ class AttentionCorrelationTrial(Registrable):
         utils.write_frame(df, self.serialization_dir, 'feature_importance')
         self.feature_importance_results = df
 
-    def calculate_correlation(self) -> None:
+    def _calculate_correlation(self) -> None:
 
         corr_df = {
             'seed': [],
@@ -190,6 +190,10 @@ class AttentionCorrelationTrial(Registrable):
         df = pd.DataFrame(corr_df)
         utils.write_frame(df, self.serialization_dir, 'correlation')
         self.correlation_results = df
+
+    def calculate_scores(self):
+        self._calculate_feature_importance()
+        self._calculate_correlation()
 
     @classmethod
     def from_partial_objects(

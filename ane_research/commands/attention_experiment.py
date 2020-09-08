@@ -168,8 +168,7 @@ def run_trial(
         seed=seed,
         serialization_dir=trial_dir
     )
-    attention_trial.calculate_correlation()
-    attention_trial.calculate_feature_importance()
+    attention_trial.calculate_scores()
 
     return attention_trial
 
