@@ -24,7 +24,7 @@ class AllenNLPInstanceDomainMapper(explanation.DomainMapper):
         """Initializer.
 
         Args:
-            instance: TODO
+            instance: The AllenNLP Instance 
         """
         self.instance = instance
 
@@ -57,24 +57,7 @@ class AllenNLPInstanceDomainMapper(explanation.DomainMapper):
              text: if False, return empty
              opacity: if True, fade colors according to weight
         """
-        #TODO
-        if not text:
-            return u''
-        text = (self.indexed_string.raw_string()
-                .encode('utf-8', 'xmlcharrefreplace').decode('utf-8'))
-        text = re.sub(r'[<>&]', '|', text)
-        exp = [(self.indexed_string.word(x[0]),
-                self.indexed_string.string_position(x[0]),
-                x[1]) for x in exp]
-        all_occurrences = list(itertools.chain.from_iterable(
-            [itertools.product([x[0]], x[1], [x[2]]) for x in exp]))
-        all_occurrences = [(x[0], int(x[1]), x[2]) for x in all_occurrences]
-        ret = '''
-            %s.show_raw_text(%s, %d, %s, %s, %s);
-            ''' % (exp_object_name, json.dumps(all_occurrences), label,
-                   json.dumps(text), div_name, json.dumps(opacity))
-        return ret
-
+        raise NotImplementedError() 
 
 class LimeAllenNLPInstanceExplainer(object):
     """Explains text classifiers within the AllenNLP framework.
@@ -87,9 +70,7 @@ class LimeAllenNLPInstanceExplainer(object):
                  verbose=False,
                  class_names=None,
                  feature_selection='auto',
-                 split_expression=r'\W+',
                  bow=True,
-                 mask_string=None,
                  random_state=None,
                  char_level=False):
         """Init function.
@@ -153,11 +134,9 @@ class LimeAllenNLPInstanceExplainer(object):
         each of the classes in an interpretable way (see lime_base.py).
 
         Args:
-            instance: TODO 
-            model: TODO classifier prediction probability function, which
-                takes a list of d strings and outputs a (d, k) numpy array with
-                prediction probabilities, where k is the number of classes.
-                For ScikitClassifiers , this is classifier.predict_proba.
+            instance: the AllenNLP Instance being explained. 
+            model: the AllenNLP model that will be used to obtain prediction
+                probabilities for the perturbed versions of the given Instance.
             labels: iterable with labels to be explained.
             top_labels: if not None, ignore labels and produce explanations for
                 the K labels with highest prediction probabilities, where K is
@@ -208,9 +187,9 @@ class LimeAllenNLPInstanceExplainer(object):
         the instance, and predicting with the model. Uses cosine distance
         to compute distances between original and perturbed instances.
         Args:
-            instance: instance to be explained,
-            model: 
-            num_samples: size of the neighborhood to learn the linear model
+            instance: instance to be explained.
+            model: model used to obtain prediction probabilities.
+            num_samples: size of the neighborhood to learn the linear model.
             distance_metric: the distance metric to use for sample weighting,
                 defaults to cosine similarity.
 
