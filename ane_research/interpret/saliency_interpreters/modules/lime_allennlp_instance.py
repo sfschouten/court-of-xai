@@ -212,11 +212,13 @@ class LimeAllenNLPInstanceExplainer(object):
         vocab = model.vocab
         pad_token = vocab.get_token_index(vocab._padding_token)
         
+        # list for original + all perturbed instances
         inverse_data = [ instance ]
         
-        doc_sizes = {}
-        samples = {}
-        data = {}
+        # some things to keep track of for each textfield in the instance.
+        doc_sizes = {} # length of each text field
+        samples = {}   # how many words to remove for each sample and textfield
+        data = {}      # array to keep track of which words were removed
         features_ranges = {}
         for key,field in instance.items():
             if not isinstance(field, TextField):
@@ -232,7 +234,8 @@ class LimeAllenNLPInstanceExplainer(object):
             data[key][0] = np.ones(doc_size)
             features_ranges[key] = range(doc_size)
 
-        
+
+        # generate the perturbed instances  
         for i in range(1, num_samples):
             removed = instance.duplicate()
 
@@ -257,8 +260,10 @@ class LimeAllenNLPInstanceExplainer(object):
 
             inverse_data.append(removed)
 
+        # concatenate data from different textfields in reverse for compatibility.
         data = np.concatenate(tuple(data[key] for key in reversed(list(data.keys()))), axis=1)
 
+        # batched prediction
         BATCH_SIZE = 16
         batches = (itertools.islice(inverse_data, x, x+BATCH_SIZE) for x in range(0, len(inverse_data), BATCH_SIZE))
         results = []
