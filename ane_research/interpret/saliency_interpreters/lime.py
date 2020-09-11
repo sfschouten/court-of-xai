@@ -20,11 +20,11 @@ class LimeInterpreter(SaliencyInterpreter):
     """
     """
 
-    def __init__(self, predictor: Predictor, num_samples: int = 250) -> None:
+    def __init__(self, predictor: Predictor, num_samples: int = 250, batch_size: int = 16) -> None:
         super().__init__(predictor)
 
         self._id = 'lime'
-        self.explainer = LimeAllenNLPInstanceExplainer(bow=False)
+        self.explainer = LimeAllenNLPInstanceExplainer(bow=False, batch_size=batch_size)
         self.num_samples = num_samples
 
     @property

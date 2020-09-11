@@ -72,7 +72,8 @@ class LimeAllenNLPInstanceExplainer(object):
                  feature_selection='auto',
                  bow=True,
                  random_state=None,
-                 char_level=False):
+                 char_level=False,
+                 batch_size=16):
         """Init function.
 
         Args:
@@ -100,6 +101,8 @@ class LimeAllenNLPInstanceExplainer(object):
                 initialized using the internal numpy seed.
             char_level: an boolean identifying that we treat each character
                 as an independent occurence in the string
+            batch_size: the size of the batches with which to calculate class-
+                probabilities for the perturbed instances.
         """
 
         if kernel is None:
@@ -116,6 +119,7 @@ class LimeAllenNLPInstanceExplainer(object):
         self.feature_selection = feature_selection
         self.bow = bow
         self.char_level = char_level
+        self.batch_size = batch_size
 
     def explain_instance(self,
                          instance,
@@ -264,8 +268,7 @@ class LimeAllenNLPInstanceExplainer(object):
         data = np.concatenate(tuple(data[key] for key in reversed(list(data.keys()))), axis=1)
 
         # batched prediction
-        BATCH_SIZE = 16
-        batches = (itertools.islice(inverse_data, x, x+BATCH_SIZE) for x in range(0, len(inverse_data), BATCH_SIZE))
+        batches = (itertools.islice(inverse_data, x, x+self.batch_size) for x in range(0, len(inverse_data), self.batch_size))
         results = []
         for idx, batch in enumerate(batches):
             batch = list(batch)
