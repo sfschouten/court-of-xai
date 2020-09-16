@@ -251,16 +251,15 @@ class LimeAllenNLPInstanceExplainer(object):
                 size = samples[field_key][i-1]
                 features_range = features_ranges[field_key]
                 inactive = self.random_state.choice(features_range, size, replace=False)
-                
                 data[field_key][i, inactive] = 0
                 
                 for idxr, tokenlist in removed[field_key]._indexed_tokens.items():
-                    for j in inactive:
+                    for j in sorted(inactive, reverse=True):
                         for key in tokenlist.keys():
                             # TODO: this (use fields with 'token') is too brittle, 
                             # should make model/predictor implement interface that exposes the name of the relevant field.
                             if 'token' in key:
-                                tokenlist[key][j] = pad_token
+                                del tokenlist[key][j]
 
             inverse_data.append(removed)
 
@@ -270,6 +269,7 @@ class LimeAllenNLPInstanceExplainer(object):
         # batched prediction
         batches = (itertools.islice(inverse_data, x, x+self.batch_size) for x in range(0, len(inverse_data), self.batch_size))
         results = []
+
         for idx, batch in enumerate(batches):
             batch = list(batch)
             results.extend(model.forward_on_instances(batch))
