@@ -256,10 +256,8 @@ class LimeAllenNLPInstanceExplainer(object):
                 for idxr, tokenlist in removed[field_key]._indexed_tokens.items():
                     for j in sorted(inactive, reverse=True):
                         for key in tokenlist.keys():
-                            # TODO: this (use fields with 'token') is too brittle, 
-                            # should make model/predictor implement interface that exposes the name of the relevant field.
-                            if 'token' in key:
-                                del tokenlist[key][j]
+                            # TODO: make sure we want to remove from each tokenlist 
+                            del tokenlist[key][j]
 
             inverse_data.append(removed)
 
