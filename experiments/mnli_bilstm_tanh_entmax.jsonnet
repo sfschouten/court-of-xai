@@ -7,7 +7,7 @@ local alpha_param_re = "^.*attention\\.activation\\.alpha";
         "type": "snli"
     },
     "train_data_path": std.join("/", [std.extVar("PWD"), "ane_research/datasets/MNLI/multinli_1.0_train.jsonl"]),
-    # "test_data_path": std.join("/", [std.extVar("PWD"), "ane_research/datasets/MNLI/multinli_1.0_dev_matched.jsonl"]),
+    "test_data_path": std.join("/", [std.extVar("PWD"), "ane_research/datasets/MNLI/multinli_1.0_test.jsonl"]),
     "validation_data_path": std.join("/", [std.extVar("PWD"), "ane_research/datasets/MNLI/multinli_1.0_dev_matched.jsonl"]),
     "evaluate_on_test": false,
     "model": {

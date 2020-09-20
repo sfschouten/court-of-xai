@@ -15,7 +15,7 @@
 - Quora (https://drive.google.com/file/d/12b-cq6D45U5c-McPoq2wsFjzs6QduY_y/view?usp=sharing)
   - Our split (80/10/10), question pairs with combined word count greater than 200 were removed.
 - SNLI (https://nlp.stanford.edu/projects/snli/)
-- MultiNLI (https://cims.nyu.edu/~sbowman/multinli/)
+- MultiNLI (https://cims.nyu.edu/~sbowman/multinli/) (get the test set from [here](https://cims.nyu.edu/~sbowman/xnli/) and run the `extract_mnli_test_en.py` script)
 - IMDb
 - SST-2
 
