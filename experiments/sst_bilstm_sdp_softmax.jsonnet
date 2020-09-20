@@ -10,7 +10,7 @@ local batch_size = 64;
     "train_data_path": std.join("/", [std.extVar("PWD"), "ane_research/datasets/SST/train.txt"]),
     "test_data_path": std.join("/", [std.extVar("PWD"), "ane_research/datasets/SST/test.txt"]),
     "validation_data_path": std.join("/", [std.extVar("PWD"), "ane_research/datasets/SST/dev.txt"]),
-    "evaluate_on_test": true,
+    "evaluate_on_test": false,
     "model": {
         "type": "jain_wallace_attention_binary_classifier",
         "word_embeddings": {
@@ -65,10 +65,10 @@ local batch_size = 64;
             {
                 "type": "leave-one-out"
             },
-            // {
-            //     "type": "lime",
-            //     "num_samples": 250
-            // },
+            {
+                "type": "lime",
+                "num_samples": 250
+            },
             {
                 "type": "captum",
                 "captum": "captum-integrated-gradients"
@@ -99,6 +99,6 @@ local batch_size = 64;
         "compatibility_function": "Scaled Multiplicative",
         "activation_function": "Softmax",
         "batch_size": batch_size,
-        "cuda_device": -1
+        "cuda_device": 0
     }
 }

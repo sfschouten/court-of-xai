@@ -14,11 +14,10 @@ local batch_size = 128;
         }},
         "combine_input_fields" : true,
     },
-    # temporarily using dev set for training, and test for validation and test.
     "train_data_path": std.join("/", [std.extVar("PWD"), "ane_research/datasets/SNLI/snli_1.0_train.jsonl"]),
     "test_data_path": std.join("/", [std.extVar("PWD"), "ane_research/datasets/SNLI/snli_1.0_test.jsonl"]),
     "validation_data_path": std.join("/", [std.extVar("PWD"), "ane_research/datasets/SNLI/snli_1.0_dev.jsonl"]),
-    "evaluate_on_test": true,
+    "evaluate_on_test": false,
     "model": {
         "type": "distilbert_sequence_classification_from_huggingface",
         "model_name": "distilbert-base-uncased",
@@ -56,10 +55,10 @@ local batch_size = 128;
             {
                 "type": "leave-one-out"
             },
-            // {
-            //     "type": "lime",
-            //     "num_samples": 250
-            // },
+            {
+                "type": "lime",
+                "num_samples": 250
+            },
             {
                 "type": "captum",
                 "captum": "captum-integrated-gradients"
@@ -90,6 +89,6 @@ local batch_size = 128;
         "compatibility_function": "Self",
         "activation_function": "Softmax",
         "batch_size": batch_size,
-        "cuda_device": -1
+        "cuda_device": 0
     }
 }

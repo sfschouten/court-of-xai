@@ -55,10 +55,10 @@ local batch_size = 128;
             {
                 "type": "leave-one-out"
             },
-            // {
-            //     "type": "lime",
-            //     "num_samples": 250
-            // },
+            {
+                "type": "lime",
+                "num_samples": 250
+            },
             {
                 "type": "captum",
                 "captum": "captum-integrated-gradients"
@@ -89,6 +89,6 @@ local batch_size = 128;
         "compatibility_function": "Self",
         "activation_function": "Softmax",
         "batch_size": batch_size,
-        "cuda_device": -1
+        "cuda_device": 0
     }
 }

@@ -67,10 +67,10 @@ local transformer_model = "distilbert-base-uncased";
             {
                 "type": "leave-one-out"
             },
-            // {
-            //     "type": "lime",
-            //     "num_samples": 250
-            // },
+            {
+                "type": "lime",
+                "num_samples": 250
+            },
             {
                 "type": "captum",
                 "captum": "captum-integrated-gradients"
@@ -104,6 +104,6 @@ local transformer_model = "distilbert-base-uncased";
         "compatibility_function": "Self",
         "activation_function": "Entmax",
         "batch_size": batch_size,
-        "cuda_device": -1
+        "cuda_device": 0
     }
 }

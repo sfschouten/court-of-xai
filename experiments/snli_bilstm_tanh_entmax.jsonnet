@@ -9,7 +9,7 @@ local batch_size = 64;
     "train_data_path": std.join("/", [std.extVar("PWD"), "ane_research/datasets/SNLI/snli_1.0_train.jsonl"]),
     "test_data_path": std.join("/", [std.extVar("PWD"), "ane_research/datasets/SNLI/snli_1.0_test.jsonl"]),
     "validation_data_path": std.join("/", [std.extVar("PWD"), "ane_research/datasets/SNLI/snli_1.0_dev.jsonl"]),
-    "evaluate_on_test": true,
+    "evaluate_on_test": false,
     "model": {
         "type": "pair_sequence_classifier",
         "word_embeddings": {
@@ -66,10 +66,10 @@ local batch_size = 64;
             {
                 "type": "leave-one-out"
             },
-            // {
-            //     "type": "lime",
-            //     "num_samples": 250
-            // },
+            {
+                "type": "lime",
+                "num_samples": 250
+            },
             {
                 "type": "captum",
                 "captum": "captum-integrated-gradients"
@@ -103,6 +103,6 @@ local batch_size = 64;
         "compatibility_function": "Additive (tanh)",
         "activation_function": "Entmax",
         "batch_size": batch_size,
-        "cuda_device": -1
+        "cuda_device": 0
     }
 }

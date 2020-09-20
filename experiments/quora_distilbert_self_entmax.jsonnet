@@ -17,7 +17,7 @@ local alpha_param_re = "^.*attention\\.activation\\.alpha";
     "train_data_path": std.join("/", [std.extVar("PWD"), "ane_research/datasets/QUORA/quora_train.tsv"]),
     "test_data_path": std.join("/", [std.extVar("PWD"), "ane_research/datasets/QUORA/quora_test.tsv"]),
     "validation_data_path": std.join("/", [std.extVar("PWD"), "ane_research/datasets/QUORA/quora_dev.tsv"]),
-    "evaluate_on_test": true,
+    "evaluate_on_test": false,
     "model": {
         "type": "distilbert_sequence_classification_from_huggingface",
         "model_name": "distilbert-base-uncased",
@@ -65,10 +65,10 @@ local alpha_param_re = "^.*attention\\.activation\\.alpha";
             {
                 "type": "leave-one-out"
             },
-            // {
-            //     "type": "lime",
-            //     "num_samples": 250
-            // },
+            {
+                "type": "lime",
+                "num_samples": 250
+            },
             {
                 "type": "captum",
                 "captum": "captum-integrated-gradients"
@@ -102,6 +102,6 @@ local alpha_param_re = "^.*attention\\.activation\\.alpha";
         "compatibility_function": "Self",
         "activation_function": "Entmax",
         "batch_size": batch_size,
-        "cuda_device": -1
+        "cuda_device": 0
     }
 }

@@ -72,10 +72,10 @@ local alpha_param_re = "^.*attention\\.activation\\.alpha";
             {
                 "type": "leave-one-out"
             },
-            // {
-            //     "type": "lime",
-            //     "num_samples": 250
-            // },
+            {
+                "type": "lime",
+                "num_samples": 250
+            },
             {
                 "type": "captum",
                 "captum": "captum-integrated-gradients"
@@ -109,6 +109,6 @@ local alpha_param_re = "^.*attention\\.activation\\.alpha";
         "compatibility_function": "Additive (tanh)",
         "activation_function": "Entmax",
         "batch_size": batch_size,
-        "cuda_device": -1
+        "cuda_device": 0
     }
 }
