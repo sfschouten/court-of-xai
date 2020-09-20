@@ -157,21 +157,28 @@ class AttentionCorrelationTrial(Registrable):
             'instance_fields': [],
             'predicted': [],
             'actual': [],
-            'feature_importance_measure': [],
-            'attention_measure': [],
+            'measure_1': [],
+            'measure_2': [],
         }
+
+        def _get_scores_by_key_and_instance(key: str, instance_id: str):
+            if key in self.attention_scores.keys():
+                return np.concatenate(self.attention_scores[key][instance_id])
+            else:
+                return np.concatenate(self.feature_importance_scores[key][instance_id])
 
         for measure in self.correlation_measures:
             for field in measure.fields:
                 corr_df[field] = []
 
-        correlation_combos = list(itertools.product(self.attention_scores.keys(), self.feature_importance_scores.keys()))
+        feature_importance_measures = list(self.attention_scores.keys()) + list(self.feature_importance_scores.keys())
+        correlation_combos = list(itertools.combinations(feature_importance_measures, 2))
         for ids, labeled_batch, actual_labels in self.dataset:
             for instance_id, labeled_instance, actual_label in zip(ids, labeled_batch, actual_labels):
-                for (attn_measure, fi_measure) in correlation_combos:
+                for (key1, key2) in correlation_combos:
 
-                    attn_score = np.concatenate(self.attention_scores[attn_measure][instance_id])
-                    fi_score = np.concatenate(self.feature_importance_scores[fi_measure][instance_id])
+                    key1_score = _get_scores_by_key_and_instance(key1, instance_id)
+                    key2_score = _get_scores_by_key_and_instance(key2, instance_id)
 
                     corr_df['seed'].append(self.seed)
                     corr_df['instance_id'].append(instance_id)
@@ -179,11 +186,11 @@ class AttentionCorrelationTrial(Registrable):
                     corr_df['instance_fields'].append(list(self.field_names))
                     corr_df['predicted'].append(labeled_instance['label'].label)
                     corr_df['actual'].append(actual_label)
-                    corr_df['feature_importance_measure'].append(fi_measure)
-                    corr_df['attention_measure'].append(attn_measure)
+                    corr_df['measure_1'].append(key1)
+                    corr_df['measure_2'].append(key2)
 
                     for measure in self.correlation_measures:
-                        corr_dict = measure.correlation(attn_score, fi_score, **self.correlation_kwargs)
+                        corr_dict = measure.correlation(key1_score, key2_score, **self.correlation_kwargs)
                         for k, v in corr_dict.items():
                             corr_df[k].append(v)
 

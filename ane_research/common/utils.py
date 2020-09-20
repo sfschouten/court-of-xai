@@ -1,6 +1,9 @@
+import json
 import os
 from os import PathLike
 from typing import Generator, Iterable
+
+from allennlp.common import JsonDict
 import pandas as pd
 
 def ensure_dir(file_path: PathLike) -> PathLike:
@@ -24,6 +27,14 @@ def write_frame(
     frame.to_pickle(os.path.join(os.path.join(base_path, name + '.pkl')))
     with open(os.path.join(os.path.join(base_path, name + '.csv')), 'w+') as handle:
         frame.to_csv(handle)
+
+def write_json(
+    data: JsonDict,
+    base_path: PathLike,
+    name: str
+) -> None:
+    with open(os.path.join(os.path.join(base_path, name + '.json')), 'w+', encoding='utf-8') as handle:
+        json.dump(data, handle, ensure_ascii=False, indent=4)
 
 def model_already_trained(
     base_path: PathLike
