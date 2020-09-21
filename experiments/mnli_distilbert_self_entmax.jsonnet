@@ -1,4 +1,4 @@
-local batch_size = 64;
+local batch_size = 32;
 local alpha_param_re = "^.*attention\\.activation\\.alpha";
 {
     "dataset_reader": {
