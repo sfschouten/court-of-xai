@@ -17,7 +17,7 @@ local batch_size = 128;
     "train_data_path": std.join("/", [std.extVar("PWD"), "ane_research/datasets/SNLI/snli_1.0_train.jsonl"]),
     "test_data_path": std.join("/", [std.extVar("PWD"), "ane_research/datasets/SNLI/snli_1.0_test.jsonl"]),
     "validation_data_path": std.join("/", [std.extVar("PWD"), "ane_research/datasets/SNLI/snli_1.0_dev.jsonl"]),
-    "evaluate_on_test": false,
+    "evaluate_on_test": true,
     "model": {
         "type": "distilbert_sequence_classification_from_huggingface",
         "model_name": "distilbert-base-uncased",
