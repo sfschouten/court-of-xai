@@ -18,7 +18,7 @@ local transformer_model = "distilbert-base-uncased";
     "train_data_path": std.join("/", [std.extVar("PWD"), "ane_research/datasets/SST/train.txt"]),
     "test_data_path": std.join("/", [std.extVar("PWD"), "ane_research/datasets/SST/test.txt"]),
     "validation_data_path": std.join("/", [std.extVar("PWD"), "ane_research/datasets/SST/dev.txt"]),
-    "evaluate_on_test": false,
+    "evaluate_on_test": true,
     "model": {
         "type": "distilbert_sequence_classification_from_huggingface",
         "model_name": transformer_model,
