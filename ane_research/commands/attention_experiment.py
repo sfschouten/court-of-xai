@@ -215,7 +215,8 @@ def run_attention_experiment(
                 serialization_dir=serialization_dir,
                 seed=seed,
                 recover=recover,
-                force=force
+                force=force,
+                train_only=train_only
             )
         )
 
