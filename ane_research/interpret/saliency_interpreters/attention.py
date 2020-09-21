@@ -2,10 +2,12 @@ from typing import List, Dict, Iterable, Optional, Type, Union
 
 import logging
 
+from allennlp.common import Tqdm
 from allennlp.common.util import JsonDict, sanitize
 from allennlp.data import Instance
 from allennlp.interpret.saliency_interpreters.saliency_interpreter import SaliencyInterpreter
 
+from ane_research.config import Config
 from ane_research.models.modules.attention.attention import AttentionAnalysisMethods, AttentionAggregator
 
 
@@ -48,13 +50,13 @@ class AttentionInterpreter(SaliencyInterpreter):
             raise TypeError("predictor must be of :class:`~.interpret.saliency_interpreters.AttentionModelPredictor`")
 
         super().__init__(predictor)
+        self.logger = logging.getLogger(Config.logger_name)
         self.analysis_method = analysis_method
 
         # Make sure aggregate_method is suitable for predictor
         if not any(isinstance(aggregate_method, suitable) for suitable in  predictor.get_suitable_aggregators()):
-            logger = logging.getLogger(__name__)
-            logger.warning("The supplied aggregator is not suitable for this predictor!")
-        
+            self.logger.warning("The supplied aggregator is not suitable for this predictor!")
+
         self.aggregate_method = aggregate_method
 
         agg_method = f"{self.aggregate_method.id}_" if self.aggregate_method else ""
@@ -65,6 +67,8 @@ class AttentionInterpreter(SaliencyInterpreter):
        return self._id
 
     def saliency_interpret_instances(self, labeled_instances: Iterable[Instance]) -> JsonDict:
+        self.logger.info(f'{self.id}: interpreting {len(labeled_instances)} instances')
+
         instances_with_attn = dict()
 
         for i_idx, instance in enumerate(labeled_instances):

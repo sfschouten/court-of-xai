@@ -11,6 +11,7 @@ from ane_research.config import Config
 
 from allennlp.predictors import Predictor
 from allennlp.nn import util
+from allennlp.common import Tqdm
 from allennlp.common.util import JsonDict, sanitize
 from allennlp.data import Instance, Batch
 from allennlp.interpret.saliency_interpreters.saliency_interpreter import SaliencyInterpreter
@@ -26,15 +27,17 @@ class LimeInterpreter(SaliencyInterpreter):
         self._id = 'lime'
         self.explainer = LimeAllenNLPInstanceExplainer(bow=False, batch_size=batch_size)
         self.num_samples = num_samples
+        self.logger = logging.getLogger(Config.logger_name)
 
     @property
     def id(self):
         return self._id
 
     def saliency_interpret_instances(self, labeled_instances: Iterable[Instance]) -> JsonDict:
+        self.logger.info(f'{self.id}: interpreting {len(labeled_instances)} instances')
         instances_with_lime = dict()
 
-        for idx, instance in enumerate(labeled_instances):
+        for idx, instance in Tqdm.tqdm(enumerate(labeled_instances)):
             explanation = self._lime(instance)
             instances_with_lime[f'instance_{idx+1}'] = { "lime_scores" : explanation }
 

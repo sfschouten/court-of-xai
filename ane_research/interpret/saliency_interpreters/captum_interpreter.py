@@ -13,7 +13,7 @@ from ane_research.config import Config
 
 from allennlp.predictors import Predictor
 from allennlp.nn import util
-from allennlp.common import Registrable
+from allennlp.common import Registrable, Tqdm
 from allennlp.common.util import JsonDict, sanitize
 from allennlp.data import Instance, Batch
 from allennlp.interpret.saliency_interpreters import SaliencyInterpreter
@@ -61,23 +61,25 @@ class CaptumAttribution(Registrable):
     def __init__(self, identifier: str, predictor: Predictor):
         self._id = identifier
         self.predictor = predictor
+        self.logger = logging.getLogger(Config.logger_name)
 
         if not isinstance(self.predictor._model, CaptumCompatible):
             raise TypeError("Predictor._model must be CaptumCompatible.")
 
-    def saliency_interpret_instances(self, labeled_instances: Iterable[Instance]) -> JsonDict:
+    def saliency_interpret_instances(self, labeled_instances: Iterable[Instance], **kwargs) -> JsonDict:
+        self.logger.info(f'{self.id}: interpreting {len(labeled_instances)} instances')
+
         instances_with_captum_attr = dict()
 
         model = self.predictor._model
 
         captum_inputs = model.instances_to_captum_inputs(labeled_instances)
-        kwargs = self.attribute_kwargs(captum_inputs)
+        all_args = dict(**kwargs, **self.attribute_kwargs(captum_inputs))
 
         # TODO: remove disabling of CUDNN when https://github.com/pytorch/pytorch/issues/10006 is fixed
         with warnings.catch_warnings(), torch.backends.cudnn.flags(enabled=False):
             warnings.simplefilter("ignore", category=UserWarning)
-            tensors = self.attribute(**kwargs)
-
+            tensors = self.attribute(**all_args)
         field_names = model.get_field_names()
 
         # sum out the embedding dimensions to get token importance
@@ -87,7 +89,7 @@ class CaptumAttribution(Registrable):
             batch_size, _, _ = tensor.shape
 
 
-        for idx, instance in zip(range(batch_size), labeled_instances):
+        for idx, instance in Tqdm.tqdm(zip(range(batch_size), labeled_instances)):
             instances_with_captum_attr[f'instance_{idx+1}'] = { }
             # AllenNLP SaliencyInterpreters index the input sequences in reverse order.
             for field_idx, (field, token_attr) in enumerate(reversed(list(attributions.items()))):
@@ -145,8 +147,8 @@ class CaptumInterpreter(SaliencyInterpreter):
     def id(self):
         return self._id
 
-    def saliency_interpret_instances(self, labeled_instances: Iterable[Instance]) -> JsonDict:
-        return self.captum.saliency_interpret_instances(labeled_instances)
+    def saliency_interpret_instances(self, labeled_instances: Iterable[Instance], **kwargs) -> JsonDict:
+        return self.captum.saliency_interpret_instances(labeled_instances, **kwargs)
 
 
 # Below are wrapper classes for various Captum Attribution sub-classes.
