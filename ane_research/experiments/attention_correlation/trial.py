@@ -228,11 +228,17 @@ class AttentionCorrelationTrial(Registrable):
         feature_importance_measures,
         correlation_measures,
         batch_size,
-        cuda_device
+        cuda_device,
+        nr_instances = 0 
     ):
         archive = load_archive(os.path.join(serialization_dir, 'model.tar.gz'), cuda_device=cuda_device)
         predictor = Predictor.from_archive(archive, archive.config.params['model']['type'])
-        test_instances = predictor._dataset_reader.read(archive.config.params['test_data_path'])
+
+        test_instances = list(predictor._dataset_reader.read(archive.config.params['test_data_path']))
+        if nr_instances:
+            random.seed(seed)
+            test_instances = random.sample(test_instances, min(len(test_instances), nr_instances))
+
         feature_importance_interpreters = [SaliencyInterpreter.from_params(params=fim, predictor=predictor) for fim in feature_importance_measures]
         correlation_measures = [CorrelationMeasure.from_params(cm) for cm in correlation_measures]
 
