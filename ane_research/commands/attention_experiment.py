@@ -87,6 +87,14 @@ class RunAttentionExperiment(Subcommand):
             help="debugging mode: reduce max instances to 100 and only train for one epoch"
         )
 
+        subparser.add_argument(
+            "-t",
+            "--train-only",
+            action="store_true",
+            required=False,
+            help="Only train the model, do not calculate feature importance measures or correlations."
+        )
+
         subparser.set_defaults(func=run_attention_experiment_from_args)
 
         return subparser
@@ -101,7 +109,8 @@ def run_attention_experiment_from_args(args: argparse.Namespace):
         seeds=args.seeds,
         recover=args.recover,
         force=args.force,
-        debug=args.debug
+        debug=args.debug,
+        train_only=args.train_only
     )
 
 def run_attention_experiment_from_file(
@@ -110,7 +119,8 @@ def run_attention_experiment_from_file(
     seeds: List[int] = Config.seeds,
     recover: bool = False,
     force: bool = False,
-    debug: bool = False
+    debug: bool = False,
+    train_only: bool = False
 ):
     """
     A wrapper around `run_attention_experiment` which loads the params from a file.
@@ -132,7 +142,8 @@ def run_attention_experiment_from_file(
         serialization_dir=serialization_dir,
         seeds=seeds,
         recover=recover,
-        force=force
+        force=force,
+        train_only=train_only
     )
 
 def run_trial(
@@ -141,7 +152,8 @@ def run_trial(
     serialization_dir: PathLike,
     seed: int,
     recover: bool = False,
-    force: bool = False
+    force: bool = False,
+    train_only: bool = False
 ) -> AttentionCorrelationTrial:
 
     _trial_params = deepcopy(trial_params)
@@ -163,6 +175,10 @@ def run_trial(
             force=force
         )
 
+    if train_only:
+        logger.info("'train-only' was specified. Finishing without calculating correlations.")
+        return
+
     attention_trial = AttentionCorrelationTrial.from_params(
         params=_trial_params,
         seed=seed,
@@ -178,7 +194,8 @@ def run_attention_experiment(
     serialization_dir: PathLike,
     seeds: List[int] = Config.seeds,
     recover: bool = False,
-    force: bool = False
+    force: bool = False,
+    train_only: bool= False
 ):
 
     train_params = deepcopy(params)
@@ -201,6 +218,12 @@ def run_attention_experiment(
                 force=force
             )
         )
+
+    logger.info("Finished training all models")
+
+    if train_only:
+        logger.info("'train-only' was specified. Finishing without aggregating trials.")
+        return
 
     attention_experiment = AttentionCorrelationExperiment.from_params(
         params=experiment_params,
