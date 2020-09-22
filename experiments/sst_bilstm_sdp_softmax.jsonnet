@@ -99,6 +99,7 @@ local batch_size = 64;
         "compatibility_function": "Scaled Multiplicative",
         "activation_function": "Softmax",
         "batch_size": batch_size,
+        "nr_instances": 1000,
         "cuda_device": 0
     }
 }

@@ -104,7 +104,7 @@ local transformer_model = "distilbert-base-uncased";
         "compatibility_function": "Self",
         "activation_function": "Entmax",
         "batch_size": batch_size,
-        "nr_instances": 500,
+        "nr_instances": 1000,
         "cuda_device": 0
     }
 }

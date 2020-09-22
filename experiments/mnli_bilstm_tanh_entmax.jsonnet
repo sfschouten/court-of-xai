@@ -109,6 +109,7 @@ local alpha_param_re = "^.*attention\\.activation\\.alpha";
         "compatibility_function": "Additive (tanh)",
         "activation_function": "Entmax",
         "batch_size": batch_size,
+        "nr_instances": 1000,
         "cuda_device": 0
     }
 }
