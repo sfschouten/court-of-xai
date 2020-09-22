@@ -76,7 +76,9 @@ class KendallTauTopKNonZero(CorrelationMeasure):
 
     @overrides
     def correlation(self, a, b, **kwargs) -> Dict[str, Union[float, int]]:
-        correlation_top_k, k = kendall_top_k(a=a, b=b, kIsNonZero=True)
+        k = kwargs.get('k')
+        kIsNonZero = (k==None)
+        correlation_top_k, k = kendall_top_k(a=a, b=b, kIsNonZero=kIsNonZero, k=k)
         return {
             self.id: correlation_top_k,
             "k_non_zero": k
