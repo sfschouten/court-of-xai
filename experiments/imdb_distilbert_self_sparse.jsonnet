@@ -8,7 +8,7 @@ local batch_size = 64;
     "train_data_path": std.join("/", [std.extVar("PWD"), "ane_research/datasets/IMDB/train.csv"]),
     "test_data_path": std.join("/", [std.extVar("PWD"), "ane_research/datasets/IMDB/test.csv"]),
     "validation_data_path": std.join("/", [std.extVar("PWD"), "ane_research/datasets/IMDB/dev.csv"]),
-    "evaluate_on_test": false,
+    "evaluate_on_test": true,
     "model": {
         "type": "distilbert_sequence_classification_from_huggingface",
         "model_name": "distilbert-base-uncased",

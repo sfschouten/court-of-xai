@@ -17,7 +17,7 @@ local batch_size = 64;
     "train_data_path": std.join("/", [std.extVar("PWD"), "ane_research/datasets/QUORA/quora_train.tsv"]),
     "test_data_path": std.join("/", [std.extVar("PWD"), "ane_research/datasets/QUORA/quora_test.tsv"]),
     "validation_data_path": std.join("/", [std.extVar("PWD"), "ane_research/datasets/QUORA/quora_dev.tsv"]),
-    "evaluate_on_test": false,
+    "evaluate_on_test": true,
     "model": {
         "type": "distilbert_sequence_classification_from_huggingface",
         "model_name": "distilbert-base-uncased",

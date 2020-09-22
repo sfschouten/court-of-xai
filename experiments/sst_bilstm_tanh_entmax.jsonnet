@@ -10,7 +10,7 @@ local alpha_param_re = "^.*attention\\.activation\\.alpha";
     "train_data_path": std.join("/", [std.extVar("PWD"), "ane_research/datasets/SST/train.txt"]),
     "test_data_path": std.join("/", [std.extVar("PWD"), "ane_research/datasets/SST/test.txt"]),
     "validation_data_path": std.join("/", [std.extVar("PWD"), "ane_research/datasets/SST/dev.txt"]),
-    "evaluate_on_test": false,
+    "evaluate_on_test": true,
     "model": {
         "type": "jain_wallace_attention_binary_classifier",
         "word_embeddings": {
