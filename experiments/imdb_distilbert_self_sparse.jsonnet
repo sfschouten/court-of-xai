@@ -33,7 +33,7 @@ local batch_size = 32;
         }
     },
     "trainer": {
-        "num_epochs": 40,
+        "num_epochs": 60,
         "patience": 5,
         "validation_metric": "+accuracy",
         "optimizer": {
