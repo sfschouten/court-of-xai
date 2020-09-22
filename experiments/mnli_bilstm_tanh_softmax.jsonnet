@@ -1,6 +1,6 @@
 local encoder_hidden_size = 128;
 local embedding_dim = 300;
-local batch_size = 64;
+local batch_size = 256;
 
 {
     "dataset_reader": {
