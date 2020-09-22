@@ -98,7 +98,7 @@ local batch_size = 64;
         "compatibility_function": "Additive (tanh)",
         "activation_function": "Uniform",
         "batch_size": batch_size,
-        "nr_instances": 1000,
+        "nr_instances": 500,
         "cuda_device": 0
     }
 }
