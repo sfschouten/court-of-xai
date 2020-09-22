@@ -159,6 +159,8 @@ def run_trial(
     _trial_params = deepcopy(trial_params)
     _train_params = deepcopy(train_params)
 
+    test_data_path = _train_params['test_data_path']
+
     trial_dir = os.path.join(serialization_dir, f"seed_{seed}")
 
     should_train = any([force, not utils.model_already_trained(trial_dir), recover])
@@ -182,7 +184,8 @@ def run_trial(
     attention_trial = AttentionCorrelationTrial.from_params(
         params=_trial_params,
         seed=seed,
-        serialization_dir=trial_dir
+        serialization_dir=trial_dir,
+        test_data_path=test_data_path
     )
 
     if not force and attention_trial.results_exist():
