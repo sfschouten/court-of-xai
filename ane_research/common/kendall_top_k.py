@@ -16,6 +16,7 @@ import numbers
 import scipy.stats as stats
 import scipy.special as special
 from typing import Any, Tuple
+import numpy.ma as ma
 
 def kendall_top_k(a: Any, b: Any, k: int = None, kIsNonZero: bool = False, p: float = 0.5) -> Tuple[float, int]:
     """Compute the top-k kendall-tau correlation metric for the given ranked lists.
