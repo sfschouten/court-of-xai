@@ -184,7 +184,11 @@ def run_trial(
         seed=seed,
         serialization_dir=trial_dir
     )
-    attention_trial.calculate_scores()
+
+    if not force and attention_trial.results_exist():
+        attention_trial.load_results()
+    else:
+        attention_trial.calculate_scores()
 
     return attention_trial
 

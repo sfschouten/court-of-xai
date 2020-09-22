@@ -53,16 +53,13 @@ class AttentionCorrelationTrial(Registrable):
         self.attention_interpreters = self._get_suitable_attention_interpreters()
         self.field_names = self.predictor._model.get_field_names()
 
-    @staticmethod
-    def load_results(serialization_dir) -> Tuple[pd.DataFrame, pd.DataFrame]:
-        feature_importance = pd.read_pickle(os.path.join(serialization_dir, 'feature_importance.pkl'))
-        correlation = pd.read_pickle(os.path.join(serialization_dir, 'correlation.pkl'))
-        return feature_importance, correlation
+    def load_results(self) -> None:
+        self.feature_importance_results = pd.read_pickle(os.path.join(self.serialization_dir, 'feature_importance.pkl'))
+        self.correlation_results = pd.read_pickle(os.path.join(self.serialization_dir, 'correlation.pkl'))
 
-    @staticmethod
-    def already_ran(serialization_dir) -> bool:
-        feature_importance_exists = os.path.isfile(os.path.join(serialization_dir, 'feature_importance.pkl'))
-        correlation_exists = os.path.isfile(os.path.join(serialization_dir, 'correlation.pkl'))
+    def results_exist(self) -> bool:
+        feature_importance_exists = os.path.isfile(os.path.join(self.serialization_dir, 'feature_importance.pkl'))
+        correlation_exists = os.path.isfile(os.path.join(self.serialization_dir, 'correlation.pkl'))
         return feature_importance_exists and correlation_exists
 
     def _calculate_average_datapoint_length(self, instances: List[Instance]):
