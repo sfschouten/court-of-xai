@@ -70,8 +70,11 @@ def kendall_top_k(a: Any, b: Any, k: int = None, kIsNonZero: bool = False, p: fl
 
     # Equation 1: i and j appear in both top k lists. Penalize per the number of shared pairs that are discordant
     # Code partially taken from scipy.stats.kendalltau
-    rx, ry = x[Z], y[Z]
-    eqn1 = np.sum([((ry[i + 1:] < ry[i]) * (rx[i + 1:] > rx[i])).sum() for i in range(len(ry) - 1)], dtype=float)
+    rx = ma.masked_equal(x_ranks, 0)
+    ry = ma.masked_equal(y_ranks, 0)
+    idx = rx.argsort()
+    (rx, ry) = (rx[idx], ry[idx])
+    eqn1 = np.sum([((ry[i + 1:] < ry[i]) * (rx[i + 1:] > rx[i])).filled(0).sum() for i in range(len(ry) - 1)], dtype=float)
 
     # Equation 2: i and j both appear in one top k list, and exactly one of i or j appears in the other
     eqn2 = (k - z) * (k + z + 1) - sum(x_ranks[S]) - sum(y_ranks[T])
