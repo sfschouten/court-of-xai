@@ -1,7 +1,5 @@
 local encoder_hidden_size = 128;
 local embedding_dim = 300;
-local batch_size = 64;
-
 {
     "dataset_reader": {
         "type": "snli"
@@ -47,7 +45,7 @@ local batch_size = 64;
     "data_loader": {
         "batch_sampler": {
             "type": "bucket",
-            "batch_size": batch_size
+            "batch_size": 512
         }
     },
     "trainer": {
@@ -98,7 +96,7 @@ local batch_size = 64;
         "model": "BiLSTM",
         "compatibility_function": "Additive (tanh)",
         "activation_function": "Uniform",
-        "batch_size": batch_size,
+        "batch_size": 64,
         "nr_instances": 500,
         "cuda_device": 0
     }
