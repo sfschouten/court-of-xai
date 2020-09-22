@@ -161,7 +161,7 @@ def run_trial(
 
     trial_dir = os.path.join(serialization_dir, f"seed_{seed}")
 
-    should_train = force or not utils.model_already_trained(trial_dir)
+    should_train = any([force, not utils.model_already_trained(trial_dir), recover])
 
     if should_train:
         _train_params['random_seed'] = seed
