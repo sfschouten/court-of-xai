@@ -18,6 +18,7 @@ import scipy.special as special
 from typing import Any, Tuple
 import numpy.ma as ma
 
+
 def kendall_top_k(a: Any, b: Any, k: int = None, kIsNonZero: bool = False, p: float = 0.5) -> Tuple[float, int]:
     """Compute the top-k kendall-tau correlation metric for the given ranked lists.
 
@@ -58,11 +59,13 @@ def kendall_top_k(a: Any, b: Any, k: int = None, kIsNonZero: bool = False, p: fl
     # indices of the top k arguments e.g., [1, 2, 3, 4] with k = 3 --> [1, 2 ,3]
     x_top_k = np.argpartition(x, -k)[-k:]
     # ranks of all arguments (projection from a list onto the domain [1...n]) e.g., [55, 42, 89, 100] --> [3, 4, 2, 1]
-    x_ranks = np.full(x.size, x.size + 1) - stats.rankdata(x)
+    x_ranked = stats.rankdata(x)
+    tau_x = np.full(x.size, x.size + 1) - x_ranked
 
     y_top_k = np.argpartition(y, -k)[-k:]
-    y_ranks = np.full(y.size, y.size + 1) - stats.rankdata(y)
-
+    y_ranked = stats.rankdata(y)
+    tau_y = np.full(y.size, y.size + 1) - y_ranked
+    
     # Using the explicit notation of Fagin et al. with references to their equation numbers
     Z = np.intersect1d(x_top_k, y_top_k)
     S = np.setdiff1d(x_top_k, y_top_k)
@@ -71,14 +74,13 @@ def kendall_top_k(a: Any, b: Any, k: int = None, kIsNonZero: bool = False, p: fl
 
     # Equation 1: i and j appear in both top k lists. Penalize per the number of shared pairs that are discordant
     # Code partially taken from scipy.stats.kendalltau
-    rx = ma.masked_equal(x_ranks, 0)
-    ry = ma.masked_equal(y_ranks, 0)
+    rx, ry = x_ranked[Z], y_ranked[Z]
     idx = rx.argsort()
     (rx, ry) = (rx[idx], ry[idx])
-    eqn1 = np.sum([((ry[i + 1:] < ry[i]) * (rx[i + 1:] > rx[i])).filled(0).sum() for i in range(len(ry) - 1)], dtype=float)
+    eqn1 = np.sum([((ry[i + 1:] < ry[i]) * (rx[i + 1:] > rx[i])).sum() for i in range(len(ry) - 1)], dtype=float)
 
     # Equation 2: i and j both appear in one top k list, and exactly one of i or j appears in the other
-    eqn2 = (k - z) * (k + z + 1) - sum(x_ranks[S]) - sum(y_ranks[T])
+    eqn2 = (k - z) * (k + z + 1) - sum(tau_x[S]) - sum(tau_y[T])
 
     # Equation 3: i, but not j, appears in one top k list and j, but not i, appears in the other
     eqn3 = (k - z) ** 2
