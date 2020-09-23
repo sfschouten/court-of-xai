@@ -47,9 +47,7 @@ class AttentionCorrelationTrial(Registrable):
         self.feature_importance_interpreters = feature_importance_interpreters
         self.attention_interpreters = self._get_suitable_attention_interpreters()
         self.correlation_measures = correlation_measures
-        self.correlation_kwargs = {
-            'average_length': self._calculate_average_datapoint_length(instances)
-        }
+        self.average_data_point_length  = self._calculate_average_datapoint_length(instances)
         self.correlation_combos = list(
             itertools.combinations(
                 [fi.id for fi in self.feature_importance_interpreters] + [ai.id for ai in self.attention_interpreters],
@@ -166,7 +164,15 @@ class AttentionCorrelationTrial(Registrable):
 
         return feature_importance_df
 
-    def _calculate_correlation_instance(self, frame, key1, key2, instance_id, non_zero_k = None):
+    def _calculate_correlation_instance(
+        self,
+        frame,
+        key1,
+        key2,
+        instance_id,
+        correlation_kwargs = None,
+        non_zero_k = None
+    ):
 
         def _get_scores_by_key_and_instance(key: str, instance_id: str):
             if key in self.attention_scores.keys():
@@ -182,7 +188,7 @@ class AttentionCorrelationTrial(Registrable):
         frame['measure_2'].append(key2)
 
         for measure in self.correlation_measures:
-            corr_dict = measure.correlation(key1_score, key2_score, **self.correlation_kwargs)
+            corr_dict = measure.correlation(key1_score, key2_score, **correlation_kwargs)
             for k, v in corr_dict.items():
                 frame[k].append(v)
                 if k == 'k_non_zero' and non_zero_k:
@@ -217,6 +223,10 @@ class AttentionCorrelationTrial(Registrable):
         else:
             non_zero_k = None
 
+        correlation_kwargs = {
+            'average_length': self.average_data_point_length
+        }
+
         for instance_id, labeled_instance, actual_label in zip(ids, labeled_batch, actual_labels):
 
             corr_df['seed'].extend([self.seed for _ in range(len(correlation_combos))])
@@ -230,7 +240,7 @@ class AttentionCorrelationTrial(Registrable):
 
             for (key1, key2) in correlation_combos:
                 if 'attn' in key1 or 'attn' in key2:
-                    self._calculate_correlation_instance(corr_df, key1, key2, instance_id, non_zero_k)
+                    self._calculate_correlation_instance(corr_df, key1, key2, instance_id, correlation_kwargs, non_zero_k)
                     at_least_one_attn = True
 
             k = None
@@ -248,7 +258,9 @@ class AttentionCorrelationTrial(Registrable):
 
             for (key1, key2) in correlation_combos:
                 if 'attn' not in key1 and 'attn' not in key2:
-                    self._calculate_correlation_instance(corr_df, key1, key2, instance_id, non_zero_k)
+                    correlation_kwargs['k'] = k
+                    self._calculate_correlation_instance(corr_df, key1, key2, instance_id, correlation_kwargs, non_zero_k)
+                    del correlation_kwargs['k']
 
         return corr_df
 
