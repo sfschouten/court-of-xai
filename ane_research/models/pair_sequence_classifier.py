@@ -106,7 +106,7 @@ class PairSequenceClassifier(Model, CaptumCompatible):
     @overrides
     def forward(
         self,
-        metadata,
+        metadata=None,
         label=None,
         output_attentions: Optional[List[AttentionAnalysisMethods]] = None,
         **inputs
