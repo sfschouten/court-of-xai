@@ -16,6 +16,7 @@ import numbers
 import scipy.stats as stats
 import scipy.special as special
 from typing import Any, Tuple
+import itertools
 
 def kendall_top_k(a: Any, b: Any, k: int = None, kIsNonZero: bool = False, p: float = 0.5) -> Tuple[float, int]:
     """Compute the top-k kendall-tau correlation metric for the given ranked lists.
@@ -63,7 +64,6 @@ def kendall_top_k(a: Any, b: Any, k: int = None, kIsNonZero: bool = False, p: fl
     y_top_k = np.argpartition(y, -k)[-k:]
     y_ranked = stats.rankdata(y)
     tau_y = np.full(y.size, y.size + 1) - y_ranked
-    
     # Using the explicit notation of Fagin et al. with references to their equation numbers
     Z = np.intersect1d(x_top_k, y_top_k)
     S = np.setdiff1d(x_top_k, y_top_k)
@@ -94,3 +94,47 @@ def kendall_top_k(a: Any, b: Any, k: int = None, kIsNonZero: bool = False, p: fl
     correlation += 1
 
     return (correlation, k)
+
+from collections import Counter
+
+def bucket_rank(x, k):
+    x_ranked = stats.rankdata(x, method='min')
+    rank_count = Counter(x_ranked)
+    used = set()
+    unique_ranks = [rank for rank in sorted(x_ranked, reverse=True) if rank not in used and (used.add(rank) or True)]
+    bucket_sizes = [rank_count[rank] for rank in unique_ranks]
+    bucket_positions = []
+    def get_bucket_position(bucket_sizes, bucket_index):
+        return sum(bucket_sizes[bucket_index + 1:]) + (bucket_sizes[bucket_index] + 1) / 2
+    bucket_positions = {rank: get_bucket_position(bucket_sizes, i) for i, rank in zip(reversed(range(len(bucket_sizes))), reversed(unique_ranks))}
+    top_k_bucket_positions = sorted(bucket_positions.values(), reverse=True)[:k]
+    
+    bucket_ranks =  np.array([bucket_positions[i] for i in x_ranked])
+    top_k = np.array([i for i, bp in enumerate(x_ranked) if bucket_positions[bp] in top_k_bucket_positions])
+    return bucket_ranks, top_k
+
+def new_top_k(x,y,k,p=0.5):
+    x_bucket_ranks, x_top_k = bucket_rank(x, k)
+    y_bucket_ranks, y_top_k = bucket_rank(y, k)
+    P = itertools.product(x_top_k, y_top_k)
+    normalizer = 0
+    penalty = 0
+    for i, j in P:
+        if i != j:
+            normalizer += 1
+            i_bucket_x = x_bucket_ranks[i]
+            j_bucket_x = x_bucket_ranks[j]
+            i_bucket_y = y_bucket_ranks[i]
+            j_bucket_y = y_bucket_ranks[j]
+            # case 1
+            if i_bucket_x != j_bucket_x and i_bucket_y != j_bucket_y:
+                opposite_order_x = i_bucket_x > j_bucket_x and i_bucket_y < j_bucket_y
+                opposite_order_y = i_bucket_x < j_bucket_x and i_bucket_y > j_bucket_y
+                if opposite_order_x or opposite_order_y:
+                    penalty += 1
+            # case 3
+            if (i_bucket_x == j_bucket_x and i_bucket_y != j_bucket_y) or (i_bucket_y == j_bucket_y and i_bucket_x != j_bucket_x):
+                penalty += p
+    if normalizer != 0:
+        penalty = penalty / normalizer
+    return -2*penalty + 1
