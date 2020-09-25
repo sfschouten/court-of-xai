@@ -44,20 +44,44 @@ class KendallTau(CorrelationMeasure):
         }
 
 
+@CorrelationMeasure.register("kendall_top_k")
+class KendallTauTopK(CorrelationMeasure):
+
+    def __init__(self, k: int = None):
+        self.k = k
+
+        k_name = str(k) if k else "length"
+        id_ = f"kendall_top_k={k_name}"
+        fields = [ id_, "k" ]
+
+        super().__init__(identifier=id_, fields=fields)
+
+    @overrides
+    def correlation(self, a, b, **kwargs) -> Dict[str, Union[float, int]]:
+        correlation_top_k, k = kendall_top_k(a=a, b=b, k=self.k)
+        return {
+            self.id: correlation_top_k,
+            "k": k
+        }
+
+
 @CorrelationMeasure.register("kendall_top_k_average_length")
 class KendallTauTopKAverageLength(CorrelationMeasure):
 
-    def __init__(self):
+    def __init__(self, factor: float = 1):
+        self.factor = factor
+        id_ = f"kendall_top_k_{factor}_average_length"
         fields = [
-            "kendall_top_k_average_length",
+            id_,
             "k_average_length"
         ]
-        super().__init__(identifier="kendall_top_k_average_length", fields=fields)
+        super().__init__(identifier=id_, fields=fields)
 
     @overrides
     def correlation(self, a, b, **kwargs) -> Dict[str, Union[float, int]]:
         average_length = kwargs['average_length']
-        correlation_top_k, k = kendall_top_k(a=a, b=b, k=average_length)
+        k = int(self.factor * average_length)
+        correlation_top_k, k = kendall_top_k(a=a, b=b, k=k)
         return {
             self.id: correlation_top_k,
             "k_average_length": k

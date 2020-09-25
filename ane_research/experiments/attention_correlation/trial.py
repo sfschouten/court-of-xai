@@ -66,14 +66,24 @@ class AttentionCorrelationTrial(Registrable):
         self.feature_importance_results = None
         self.correlation_results = None
 
-    def load_results(self) -> None:
+    def load_importances(self) -> None:
         self.feature_importance_results = pd.read_pickle(os.path.join(self.serialization_dir, 'feature_importance.pkl'))
+
+    def load_correlations(self) -> None:
         self.correlation_results = pd.read_pickle(os.path.join(self.serialization_dir, 'correlation.pkl'))
 
+    def load_results(self) -> None:
+        self.load_importances()
+        self.load_correlations()
+
+    def importances_exist(self) -> bool:
+        return os.path.isfile(os.path.join(self.serialization_dir, 'feature_importance.pkl'))
+
+    def correlations_exist(self) -> bool:
+        return os.path.isfile(os.path.join(self.serialization_dir, 'correlation.pkl'))
+
     def results_exist(self) -> bool:
-        feature_importance_exists = os.path.isfile(os.path.join(self.serialization_dir, 'feature_importance.pkl'))
-        correlation_exists = os.path.isfile(os.path.join(self.serialization_dir, 'correlation.pkl'))
-        return feature_importance_exists and correlation_exists
+        return self.importances_exist() and self.correlations_exist()
 
     def _calculate_average_datapoint_length(self, instances: List[Instance]):
         num_tokens_per_datapoint = [ \
@@ -186,9 +196,10 @@ class AttentionCorrelationTrial(Registrable):
 
         frame['measure_1'].append(key1)
         frame['measure_2'].append(key2)
-
+        print(self.correlation_meaures)
         for measure in self.correlation_measures:
             corr_dict = measure.correlation(key1_score, key2_score, **correlation_kwargs)
+            print(corr_dict)
             for k, v in corr_dict.items():
                 frame[k].append(v)
                 if k == 'k_non_zero' and non_zero_k:
@@ -208,7 +219,6 @@ class AttentionCorrelationTrial(Registrable):
         }
 
         ids, labeled_batch, actual_labels = batch
-
         for measure in self.correlation_measures:
             for field in measure.fields:
                 corr_df[field] = []
@@ -237,7 +247,6 @@ class AttentionCorrelationTrial(Registrable):
             corr_df['actual'].extend([actual_label for _ in range(len(correlation_combos))])
 
             at_least_one_attn = False
-
             for (key1, key2) in correlation_combos:
                 if 'attn' in key1 or 'attn' in key2:
                     self._calculate_correlation_instance(corr_df, key1, key2, instance_id, correlation_kwargs, non_zero_k)
@@ -264,22 +273,28 @@ class AttentionCorrelationTrial(Registrable):
 
         return corr_df
 
-    def calculate_scores(self):
+    def calculate_importances(self):
         feature_importance_df = defaultdict(list)
-        corr_df = defaultdict(list)
 
         for batch in Tqdm.tqdm(self.dataset):
             importance_scores = self._calculate_feature_importance_batch(batch)
             for k, v in importance_scores.items():
                 feature_importance_df[k].extend(v)
+
+        self.feature_importance_results = pd.DataFrame(feature_importance_df)
+        utils.write_frame(self.feature_importance_results, self.serialization_dir, 'feature_importance')
+
+    def calculate_scores(self):
+        corr_df = defaultdict(list)
+
+        for batch in Tqdm.tqdm(self.dataset):
             correlation_scores = self._calculate_correlation_batch(batch)
             for k, v in correlation_scores.items():
+                print(len(v))
                 corr_df[k].extend(v)
         
         self.correlation_results = pd.DataFrame(corr_df)
-        self.feature_importance_results = pd.DataFrame(feature_importance_df)
         utils.write_frame(self.correlation_results, self.serialization_dir, 'correlation')
-        utils.write_frame(self.feature_importance_results, self.serialization_dir, 'feature_importance')
 
     @classmethod
     def from_partial_objects(

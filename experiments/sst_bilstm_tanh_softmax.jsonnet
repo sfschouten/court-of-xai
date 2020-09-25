@@ -87,11 +87,20 @@ local batch_size = 64;
             }
         ],
         "correlation_measures": [
+            "kendall_tau",
             {
-                "type": "kendall_tau"
+                "type": "kendall_top_k"
+            },
+            {
+                "type": "kendall_top_k",
+                "k": 10
             },
             {
                 "type": "kendall_top_k_average_length"
+            },
+            {
+                "type": "kendall_top_k_average_length",
+                "factor": 0.5
             }
         ],
         "dataset": "SST",
