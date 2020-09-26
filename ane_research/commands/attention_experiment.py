@@ -225,12 +225,18 @@ def run_attention_experiment(
 ):
 
     train_params = deepcopy(params)
-    # all params not required to train a model
-    additional_params = train_params.params.pop("attention_experiment")
-    necessary_params_for_trial = inspect.getfullargspec(AttentionCorrelationTrial.from_partial_objects)[0]
-    necessary_params_for_experiment = inspect.getfullargspec(AttentionCorrelationExperiment.from_completed_trials)[0]
-    trial_params = Params({k: v for k, v in additional_params.items() if k in necessary_params_for_trial})
-    experiment_params = Params({k: v for k, v in additional_params.items() if k in necessary_params_for_experiment})
+
+
+    if "attention_experiment" not in train_params.params:
+        logger.warn("Configuration file missing 'attention_experiment' parameters. Enabling train-only mode.")
+        train_only = True
+        trial_params = None
+    else:
+        additional_params = train_params.params.pop("attention_experiment")
+        necessary_params_for_trial = inspect.getfullargspec(AttentionCorrelationTrial.from_partial_objects)[0]
+        necessary_params_for_experiment = inspect.getfullargspec(AttentionCorrelationExperiment.from_completed_trials)[0]
+        trial_params = Params({k: v for k, v in additional_params.items() if k in necessary_params_for_trial})
+        experiment_params = Params({k: v for k, v in additional_params.items() if k in necessary_params_for_experiment})
 
     trials = []
     for seed in seeds:
