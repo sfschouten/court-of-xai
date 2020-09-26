@@ -4,7 +4,6 @@ import logging
 import torch
 from collections import defaultdict
 from allennlp.nn import util
-from allennlp.common import Tqdm
 from allennlp.common.util import JsonDict, sanitize
 from allennlp.data import Instance, Batch
 from allennlp.predictors import Predictor
@@ -27,7 +26,6 @@ class LeaveOneOut(SaliencyInterpreter):
         return self._id
 
     def saliency_interpret_instances(self, labeled_instances: Iterable[Instance]) -> JsonDict:
-        self.logger.info(f'{self.id}: interpreting {len(labeled_instances)} instances')
 
         batch = list(labeled_instances)
         instances_with_loo = dict()
@@ -37,7 +35,7 @@ class LeaveOneOut(SaliencyInterpreter):
         loo_preds = self._leave_one_out(batch)
         fields = self.predictor._model.get_field_names()
 
-        for instance_originals, predictions_per_field in Tqdm.tqdm(zip(original_preds, loo_preds.values())):
+        for instance_originals, predictions_per_field in zip(original_preds, loo_preds.values()):
             for f_idx in range(len(fields)):
                 prediction_for_field = predictions_per_field[f'loo_scores_{f_idx}']
                 for i in range(len(prediction_for_field)):
