@@ -87,20 +87,33 @@ local batch_size = 64;
             }
         ],
         "correlation_measures": [
-            "kendall_tau",
             {
-                "type": "kendall_top_k"
+                "type": "kendall_tau"
             },
             {
-                "type": "kendall_top_k",
-                "k": 10
+                "type": "spearman_rho"
             },
             {
-                "type": "kendall_top_k_average_length"
+                "type": "pearson_r"
             },
             {
-                "type": "kendall_top_k_average_length",
-                "factor": 0.5
+                "type": "kendall_top_k_variable",
+                "percent_top_k": [
+                    0.1,
+                    0.2,
+                    0.3,
+                    0.4,
+                    0.5,
+                ],
+            },
+            {
+                "type": "kendall_top_k_fixed",
+                "fixed_top_k": [
+                    1,
+                    3,
+                    5,
+                    10
+                ],
             }
         ],
         "dataset": "SST",
