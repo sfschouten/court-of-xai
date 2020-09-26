@@ -173,7 +173,7 @@ class KendallTauTopKNonZero(CorrelationMeasure):
     def correlation(self, a: np.ndarray, b: np.ndarray, **kwargs) -> CorrelationMap:
 
         # k may be explicitly specified in some cases to ensure fair comparisons
-        k = kwargs.get(self.id, {}).get("k")
+        k = kwargs.get("k")
         print(f'got k: {k}')
         kIsNonZero = (k==None)
 

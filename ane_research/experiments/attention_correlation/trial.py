@@ -5,9 +5,9 @@ import math
 import os
 import random
 from os import PathLike
-from typing import Any, Dict, List, Tuple, Generator
+from typing import Any, Dict, List, Generator, Optional, Tuple, Union
 
-from allennlp.common import Registrable, Tqdm
+from allennlp.common import Lazy, Registrable, Tqdm
 from allennlp.data import Instance
 from allennlp.data.fields import TextField, LabelField
 from allennlp.interpret import SaliencyInterpreter
@@ -16,14 +16,16 @@ from allennlp.predictors import Predictor
 import numpy as np
 import pandas as pd
 import statistics
+import torch
 
-from ane_research.common.correlation_measures import CorrelationMeasure, KendallTauTopKNonZero
+from ane_research.common.correlation_measures import CorrelationMeasure
 import ane_research.common.utils as utils
 from ane_research.config import Config
 from ane_research.interpret.saliency_interpreters.attention import AttentionInterpreter
 
 
 InstanceBatch = Tuple[List[int], List[Instance], List[LabelField]]
+
 
 class AttentionCorrelationTrial(Registrable):
 
@@ -164,13 +166,37 @@ class AttentionCorrelationTrial(Registrable):
             utils.write_frame(self.feature_importance_results, self.serialization_dir, 'feature_importance')
 
 
-    def _calculate_correlation_combo(self, key1: str, key2: str, correlation_kwargs = None):
+    def _calculate_correlation_combo(
+        self,
+        key1: str,
+        key2: str,
+        correlation_kwargs: Optional[Dict[str, Dict[str, Any]]] = None
+    ) -> Tuple[Dict[str, Any], Dict[str, List[int]]]:
+        """Calculate the correlation between the scores of two interpreters in the feature importance dataframe
 
+        Args:
+            key1 (str):
+                Id of the first interpreter
+            key2 (str):
+                Id of the second interpreter
+            correlation_kwargs (Optional[Dict[str, Dict[str, Any]]]):
+                A mapping of CorrelationMeasure.id -> kwargs for passing **kwargs to specific CorrelationMeasures
+
+        Returns:
+            Tuple[Dict[str, Any], Dict[str, Any]]:
+                A tuple of:
+                    - combination_frame (Dict[str, Any])
+                        A dictionary of results ready to be aggregated into the larger correlation dataframe
+                    - unfair_fair_k_values (Dict[str, List[int]])
+                       A mapping of the CorrelationMeasure.id to a list of k values used by CorrelationMeasures
+                       which may be unfair when compared in isolation. These k values can be used to ensure a
+                       fair comparison later on.
+        """
         if correlation_kwargs is None:
             correlation_kwargs = {}
 
         corr_df = defaultdict(list)
-        fair_k_values = defaultdict(list)
+        unfair_k_values = defaultdict(list)
 
         key1_mask = self.feature_importance_results['feature_importance_measure'].values == key1
         key2_mask = self.feature_importance_results['feature_importance_measure'].values == key2
@@ -184,7 +210,8 @@ class AttentionCorrelationTrial(Registrable):
             key1_scores, key2_scores = np.concatenate(key1_scores), np.concatenate(key2_scores)
 
             for measure in self.correlation_measures:
-                corr_dict = measure.correlation(key1_scores, key2_scores, **correlation_kwargs)
+                kwargs = correlation_kwargs.get(measure.id) or {}
+                corr_dict = measure.correlation(key1_scores, key2_scores, **kwargs)
                 for name, result in corr_dict.items():
                     corr_df['instance_id'].append(instance_id)
                     corr_df['seed'].append(seed)
@@ -199,9 +226,9 @@ class AttentionCorrelationTrial(Registrable):
                     corr_df['k'].append(result.k)
 
                     if measure.unfair_in_isolation:
-                        fair_k_values[name].append(result.k)
+                        unfair_k_values[measure.id].append(result.k)
 
-        return corr_df, fair_k_values
+        return corr_df, unfair_k_values
 
 
     def calculate_correlation(self, force: bool = False) -> None:
@@ -216,35 +243,38 @@ class AttentionCorrelationTrial(Registrable):
 
             progress_bar = Tqdm.tqdm(total=len(self.correlation_combos))
 
-            fair_k = defaultdict(lambda: defaultdict(list))
-
+            # We need to compare combinations with at least one attention interpreter first to get the k_values
+            # for an apples to apples comparison with combinations where both interpreters are
+            # feature importance measures
+            unfair_k = defaultdict(lambda: defaultdict(list))
             for (key1, key2) in self.correlation_combos:
                 if 'attn' in key1 or 'attn' in key2:
-                    correlations, fair_k_values = self._calculate_correlation_combo(key1, key2)
+                    correlations, unfair_k_values = self._calculate_correlation_combo(key1, key2)
 
                     for key, values in correlations.items():
                         correlation_df[key].extend(values)
-                    
-                    for measure, k in fair_k_values.items():
-                        fair_k[key1][measure].extend(k)
-                        fair_k[key2][measure].extend(k)
+
+                    for measure, k in unfair_k_values.items():
+                        unfair_k[key1][measure].extend(k)
+                        unfair_k[key2][measure].extend(k)
 
                     progress_bar.update(1)
 
+            # Now we can compare the feature importance measures to each other
             for (key1, key2) in self.correlation_combos:
                 if 'attn' not in key1 and 'attn' not in key2:
                     correlation_kwargs = defaultdict(list)
 
-                    for name, k_values in fair_k.get(key1, {}).items():
+                    # Unfair k strategy: take the average k used for each key
+                    for name, k_values in unfair_k.get(key1, {}).items():
                         correlation_kwargs[name].extend(k_values)
-
-                    for name, k_values in fair_k.get(key2, {}).items():
+                    for name, k_values in unfair_k.get(key2, {}).items():
                         correlation_kwargs[name].extend(k_values)
-                    
                     for name, k_values in correlation_kwargs.items():
                         correlation_kwargs[name] = {"k": math.floor(statistics.mean(k_values))}
 
                     correlations, _ = self._calculate_correlation_combo(key1, key2, correlation_kwargs=correlation_kwargs)
+
                     for k, v in correlations.items():
                         correlation_df[k].extend(v)
                     progress_bar.update(1)
@@ -256,14 +286,14 @@ class AttentionCorrelationTrial(Registrable):
     @classmethod
     def from_partial_objects(
         cls,
-        seed,
-        serialization_dir,
-        test_data_path,
-        feature_importance_measures,
-        correlation_measures,
-        batch_size,
-        cuda_device,
-        nr_instances = 0
+        seed: int,
+        serialization_dir: PathLike,
+        test_data_path: PathLike,
+        feature_importance_measures: List[Lazy[SaliencyInterpreter]],
+        correlation_measures: List[CorrelationMeasure],
+        batch_size: int,
+        cuda_device: Optional[Union[int, torch.device]] = None,
+        nr_instances: Optional[int] = 0
     ):
         archive = load_archive(os.path.join(serialization_dir, 'model.tar.gz'), cuda_device=cuda_device)
         predictor = Predictor.from_archive(archive, archive.config.params['model']['type'])
@@ -273,8 +303,7 @@ class AttentionCorrelationTrial(Registrable):
             random.seed(seed)
             test_instances = random.sample(test_instances, min(len(test_instances), nr_instances))
 
-        feature_importance_interpreters = [SaliencyInterpreter.from_params(params=fim, predictor=predictor) for fim in feature_importance_measures]
-        correlation_measures = [CorrelationMeasure.from_params(cm) for cm in correlation_measures]
+        feature_importance_interpreters = [fi.construct(predictor=predictor) for fi in feature_importance_measures]
 
         return cls(
             seed=seed,
