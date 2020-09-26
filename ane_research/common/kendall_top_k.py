@@ -131,10 +131,10 @@ def new_top_k(x,y,k,p=0.5):
                 opposite_order_x = i_bucket_x > j_bucket_x and i_bucket_y < j_bucket_y
                 opposite_order_y = i_bucket_x < j_bucket_x and i_bucket_y > j_bucket_y
                 if opposite_order_x or opposite_order_y:
-                    penalty += 1
+                    penalty += 0.5
             # case 3
             if (i_bucket_x == j_bucket_x and i_bucket_y != j_bucket_y) or (i_bucket_y == j_bucket_y and i_bucket_x != j_bucket_x):
-                penalty += p
+                penalty += 0.5 * p
     if normalizer != 0:
         penalty = penalty / normalizer
     return -2*penalty + 1
