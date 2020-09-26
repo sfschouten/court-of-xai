@@ -89,9 +89,12 @@ class RunAttentionExperiment(Subcommand):
 
         subparser.add_argument(
             "--re-calculate",
-            choices=["feature_importance", "correlation", "both"],
+            choices=["correlation", "both"],
             default=None,
-            help="Re-calculate specified measures if a model has already been trained."
+            help=(\
+                "If a model has already been trained, re-calculate the feature importance measures and their "\
+                "correlations ('both') or just the correlations ('correlation')."\
+            )
         )
 
         subparser.add_argument(
@@ -131,7 +134,7 @@ def run_attention_experiment_from_file(
     force: Optional[bool] = False,
     debug: Optional[bool] = False,
     train_only: Optional[bool] = False,
-    re_calculate: Optional[List[str]] = None
+    re_calculate: Optional[str] = None
 ):
     """
     A wrapper around `run_attention_experiment` which loads the params from a file.
@@ -167,7 +170,7 @@ def run_trial(
     recover: Optional[bool] = False,
     force: Optional[bool] = False,
     train_only: Optional[bool] = False,
-    re_calculate: Optional[List[str]] = None
+    re_calculate: Optional[str] = None
 ) -> AttentionCorrelationTrial:
 
     _trial_params = deepcopy(trial_params)
@@ -202,9 +205,8 @@ def run_trial(
         test_data_path=test_data_path
     )
 
-    re_calculate = re_calculate or list()
-    recalc_fi = force or "both" in re_calculate or "feature_importance" in re_calculate
-    recalc_corr = force or "both" in re_calculate or "correlation" in re_calculate
+    recalc_fi = re_calculate == "both"
+    recalc_corr = recalc_fi or re_calculate == "correlation"
 
     attention_trial.calculate_feature_importance(force=recalc_fi)
     attention_trial.calculate_correlation(force=recalc_corr)
@@ -219,7 +221,7 @@ def run_attention_experiment(
     recover: Optional[bool] = False,
     force: Optional[bool] = False,
     train_only: Optional[bool]= False,
-    re_calculate: Optional[List[str]] = None
+    re_calculate: Optional[str] = None
 ):
 
     train_params = deepcopy(params)
