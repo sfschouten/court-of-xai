@@ -50,7 +50,6 @@ class AttentionCorrelationTrial(Registrable):
 
         # Correlation Measures
         self.correlation_measures = correlation_measures
-        # TODO: clean
         self.correlation_combos = list(
             itertools.combinations(
                 [fi.id for fi in self.feature_importance_interpreters] \
@@ -60,6 +59,7 @@ class AttentionCorrelationTrial(Registrable):
 
         # Dataset
         self.dataset = self._batch_dataset(instances)
+        self.dataset_length = len(instances)
         self.average_data_point_length  = self._calculate_average_datapoint_length(instances)
         self.num_batches = math.ceil(len(instances) / self.batch_size)
 
@@ -192,140 +192,60 @@ class AttentionCorrelationTrial(Registrable):
             self.feature_importance_results = pd.DataFrame(feature_importance_df)
             utils.write_frame(self.feature_importance_results, self.serialization_dir, 'feature_importance')
 
+    def _calculate_correlation_combo(self, key1, key2):
 
-    #   corr_df = defaultdict(list)
+        corr_df = defaultdict(list)
 
-    #     for batch in Tqdm.tqdm(self.dataset):
-    #         importance_scores = self._calculate_feature_importance_batch(batch)
-    #         for k, v in importance_scores.items():
-    #             feature_importance_df[k].extend(v)
-    #         correlation_scores = self._calculate_correlation_batch(batch)
-    #         for k, v in correlation_scores.items():
-    #             corr_df[k].extend(v)
+        key1_mask = self.feature_importance_results['feature_importance_measure'].values == key1
+        key2_mask = self.feature_importance_results['feature_importance_measure'].values == key2
+        relevant_scores = self.feature_importance_results[key1_mask | key2_mask]
+        relevant_scores = relevant_scores.groupby('instance_id').agg(lambda x: x.tolist())
+        for row in relevant_scores.itertuples():
+            instance_id, seed, text, fields = row.Index, row.seed[0], row.instance_text[0], row.instance_fields[0]
+            predicted, actual = row.predicted[0], row.actual[0]
+            measure_1, measure_2, key1_scores, key2_scores = *row.feature_importance_measure, *row.scores
+            key1_scores, key2_scores = np.concatenate(key1_scores), np.concatenate(key2_scores)
+            for measure in self.correlation_measures:
+                corr_dict = measure.correlation(key1_scores, key2_scores)
+                for name, result in corr_dict.items():
+                    corr_df['instance_id'].append(instance_id)
+                    corr_df['seed'].append(seed)
+                    corr_df['instance_text'].append(text)
+                    corr_df['instance_fields'].append(fields)
+                    corr_df['predicted'].append(predicted)
+                    corr_df['actual'].append(actual)
+                    corr_df['feature_importance_measure_1'].append(measure_1)
+                    corr_df['feature_importance_measure_2'].append(measure_2)
+                    corr_df['correlation_measure'].append(name)
+                    corr_df['correlation_value'].append(result.correlation)
+                    corr_df['k'].append(result.k)
 
-    #     self.correlation_results = pd.DataFrame(corr_df)
-    #     self.feature_importance_results = pd.DataFrame(feature_importance_df)
-    #     utils.write_frame(self.correlation_results, self.serialization_dir, 'correlation')
-    #     utils.write_frame(self.feature_importance_results, self.serialization_dir, 'feature_importance')
+        return corr_df
 
-    # def _calculate_correlation_instance(
-    #     self,
-    #     frame,
-    #     key1,
-    #     key2,
-    #     instance_id,
-    #     correlation_kwargs = None,
-    #     non_zero_k = None
-    # ):
 
-    #     def _get_scores_by_key_and_instance(key: str, instance_id: str):
-    #         if key in self.attention_scores.keys():
-    #             return np.concatenate(self.attention_scores[key][instance_id])
-    #         else:
-    #             return np.concatenate(self.feature_importance_scores[key][instance_id])
+    def calculate_correlation(self, force: bool = False) -> None:
+        pkl_exists = os.path.isfile(os.path.join(self.serialization_dir, 'correlation.pkl'))
 
-    #     # get the current instance's scores for current 2 interpreters
-    #     key1_score = _get_scores_by_key_and_instance(key1, instance_id)
-    #     key2_score = _get_scores_by_key_and_instance(key2, instance_id)
+        if pkl_exists and not force:
+            self.logger.info("Correlations exist and force was not specified. Loading from disk...")
+            self.correlation_results = pd.read_pickle(os.path.join(self.serialization_dir, 'correlation.pkl'))
+        else:
+            correlation_df = defaultdict(list)
+            self.logger.info('Calculating correlations...')
 
-    #     frame['measure_1'].append(key1)
-    #     frame['measure_2'].append(key2)
+            progress_bar = Tqdm.tqdm(total=len(self.correlation_combos))
 
-    #     for measure in self.correlation_measures:
-    #         corr_dict = measure.correlation(key1_score, key2_score, **correlation_kwargs)
-    #         for k, v in corr_dict.items():
-    #             frame[k].append(v)
-    #             if k == 'k_non_zero' and non_zero_k:
-    #                 non_zero_k[(key1, key2)].append(v)
+            for (key1, key2) in self.correlation_combos:
+                correlations = self._calculate_correlation_combo(key1, key2)
 
-    # def _calculate_correlation_batch(self, batch) -> None:
+                for k, v in correlations.items():
+                    correlation_df[k].extend(v)
 
-    #     corr_df = {
-    #         'seed': [],
-    #         'instance_id': [],
-    #         'instance_text': [],
-    #         'instance_fields': [],
-    #         'predicted': [],
-    #         'actual': [],
-    #         'measure_1': [],
-    #         'measure_2': [],
-    #     }
+                progress_bar.update(1)
 
-    #     ids, labeled_batch, actual_labels = batch
+            self.correlation_results = pd.DataFrame(correlation_df)
+            utils.write_frame(self.correlation_results, self.serialization_dir, 'correlation')
 
-    #     for measure in self.correlation_measures:
-    #         for field in measure.fields:
-    #             corr_df[field] = []
-
-    #     feature_importance_measures = list(self.attention_scores.keys()) + list(self.feature_importance_scores.keys())
-    #     correlation_combos = list(itertools.combinations(feature_importance_measures, 2))
-
-    #     requires_non_zero_k = any([isinstance(cm, KendallTauTopKNonZero) for cm in self.correlation_measures])
-
-    #     if requires_non_zero_k:
-    #         non_zero_k = { (key1, key2) : [] for (key1), (key2) in correlation_combos }
-    #     else:
-    #         non_zero_k = None
-
-    #     correlation_kwargs = {
-    #         'average_length': self.average_data_point_length
-    #     }
-
-    #     for instance_id, labeled_instance, actual_label in zip(ids, labeled_batch, actual_labels):
-
-    #         corr_df['seed'].extend([self.seed for _ in range(len(correlation_combos))])
-    #         corr_df['instance_id'].extend([instance_id for _ in range(len(correlation_combos))])
-    #         corr_df['instance_text'].extend([[labeled_instance[fn].tokens for fn in self.field_names] for _ in range(len(correlation_combos))])
-    #         corr_df['instance_fields'].extend([list(self.field_names) for _ in range(len(correlation_combos))])
-    #         corr_df['predicted'].extend([labeled_instance['label'].label for _ in range(len(correlation_combos))])
-    #         corr_df['actual'].extend([actual_label for _ in range(len(correlation_combos))])
-
-    #         at_least_one_attn = False
-
-    #         for (key1, key2) in correlation_combos:
-    #             if 'attn' in key1 or 'attn' in key2:
-    #                 self._calculate_correlation_instance(corr_df, key1, key2, instance_id, correlation_kwargs, non_zero_k)
-    #                 at_least_one_attn = True
-
-    #         k = None
-    #         if at_least_one_attn and requires_non_zero_k:
-    #             # Ensure the correlation calculation between the saliency interpreters and attention interpreter
-    #             # uses the same k value for the kendall_top_k calculation
-    #             recent_ks = { (key1,key2): ks[-1] for (key1, key2), ks in non_zero_k.items() if 'attn' in key1 or 'attn' in key2 }
-
-    #             if len(set(recent_ks.values())) > 1:
-    #                 self.logger.warning(f"Not all k values used were the same across the different comparison pairs!")
-    #                 self.logger.info(recent_ks)
-
-    #             # Only then do correlations not involving attention, using the k value(s) used above.
-    #             k = int(sum(recent_ks.values()) / len(recent_ks.values()))
-
-    #         for (key1, key2) in correlation_combos:
-    #             if 'attn' not in key1 and 'attn' not in key2:
-    #                 correlation_kwargs['k'] = k
-    #                 self._calculate_correlation_instance(corr_df, key1, key2, instance_id, correlation_kwargs, non_zero_k)
-    #                 del correlation_kwargs['k']
-
-    #     return corr_df
-
-    # def calculate_correlations(self, force: bool = False):
-
-    # def calculate_scores(self):
-    #     feature_importance_df = defaultdict(list)
-    #     corr_df = defaultdict(list)
-
-    #     for batch in Tqdm.tqdm(self.dataset):
-    #         importance_scores = self._calculate_feature_importance_batch(batch)
-    #         for k, v in importance_scores.items():
-    #             feature_importance_df[k].extend(v)
-    #         correlation_scores = self._calculate_correlation_batch(batch)
-    #         for k, v in correlation_scores.items():
-    #             corr_df[k].extend(v)
-
-    #     self.correlation_results = pd.DataFrame(corr_df)
-    #     self.feature_importance_results = pd.DataFrame(feature_importance_df)
-    #     utils.write_frame(self.correlation_results, self.serialization_dir, 'correlation')
-    #     utils.write_frame(self.feature_importance_results, self.serialization_dir, 'feature_importance')
 
     @classmethod
     def from_partial_objects(
