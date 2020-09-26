@@ -13,7 +13,7 @@ from ane_research.config import Config
 
 from allennlp.predictors import Predictor
 from allennlp.nn import util
-from allennlp.common import Registrable, Tqdm
+from allennlp.common import Registrable
 from allennlp.common.util import JsonDict, sanitize
 from allennlp.data import Instance, Batch
 from allennlp.interpret.saliency_interpreters import SaliencyInterpreter
@@ -67,7 +67,6 @@ class CaptumAttribution(Registrable):
             raise TypeError("Predictor._model must be CaptumCompatible.")
 
     def saliency_interpret_instances(self, labeled_instances: Iterable[Instance], **kwargs) -> JsonDict:
-        self.logger.info(f'{self.id}: interpreting {len(labeled_instances)} instances')
 
         instances_with_captum_attr = dict()
 
@@ -89,7 +88,7 @@ class CaptumAttribution(Registrable):
             batch_size, _, _ = tensor.shape
 
 
-        for idx, instance in Tqdm.tqdm(zip(range(batch_size), labeled_instances)):
+        for idx, instance in zip(range(batch_size), labeled_instances):
             instances_with_captum_attr[f'instance_{idx+1}'] = { }
             # AllenNLP SaliencyInterpreters index the input sequences in reverse order.
             for field_idx, (field, token_attr) in enumerate(reversed(list(attributions.items()))):
