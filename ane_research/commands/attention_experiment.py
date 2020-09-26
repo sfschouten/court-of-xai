@@ -188,16 +188,7 @@ def run_trial(
         test_data_path=test_data_path
     )
 
-    if not force and attention_trial.results_exist():
-        logger.info("All results exist, loading from file.")
-        attention_trial.load_results()
-    elif not force and attention_trial.importances_exist():
-        logger.info("Importance scores exist, loading from file and (re-)calculating correlations.")
-        attention_trial.load_importances()
-        attention_trial.calculate_scores()
-    else:
-        attention_trial.calculate_importances()
-        attention_trial.calculate_scores()
+    attention_trial.calculate_feature_importance(force=force)
 
     return attention_trial
 

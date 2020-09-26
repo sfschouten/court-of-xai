@@ -1,6 +1,7 @@
 from collections import defaultdict
 import itertools
 import logging
+import math
 import os
 import random
 from os import PathLike
@@ -46,46 +47,38 @@ class AttentionCorrelationTrial(Registrable):
         # Interpreters
         self.feature_importance_interpreters = feature_importance_interpreters
         self.attention_interpreters = self._get_suitable_attention_interpreters()
+
+        # Correlation Measures
         self.correlation_measures = correlation_measures
-        self.average_data_point_length  = self._calculate_average_datapoint_length(instances)
+        # TODO: clean
         self.correlation_combos = list(
             itertools.combinations(
-                [fi.id for fi in self.feature_importance_interpreters] + [ai.id for ai in self.attention_interpreters],
-                2
+                [fi.id for fi in self.feature_importance_interpreters] \
+                + [ai.id for ai in self.attention_interpreters], 2
             )
         )
 
         # Dataset
         self.dataset = self._batch_dataset(instances)
-
-        # Calculated scores
-        self.attention_scores = defaultdict(list)
-        self.feature_importance_scores = defaultdict(list)
+        self.average_data_point_length  = self._calculate_average_datapoint_length(instances)
+        self.num_batches = math.ceil(len(instances) / self.batch_size)
 
         # Dataframes
         self.feature_importance_results = None
         self.correlation_results = None
 
-    def load_importances(self) -> None:
-        self.feature_importance_results = pd.read_pickle(os.path.join(self.serialization_dir, 'feature_importance.pkl'))
 
-    def load_correlations(self) -> None:
-        self.correlation_results = pd.read_pickle(os.path.join(self.serialization_dir, 'correlation.pkl'))
+    def _calculate_average_datapoint_length(self, instances: List[Instance]) -> int:
+        """
+        Calculate the average length of a collection of instances. The length of an Instance with multiple TextFields
+        is treated as the total length of all TextFields.
 
-    def load_results(self) -> None:
-        self.load_importances()
-        self.load_correlations()
+        Args:
+            instances (List[Instance]): Collection of Instances
 
-    def importances_exist(self) -> bool:
-        return os.path.isfile(os.path.join(self.serialization_dir, 'feature_importance.pkl'))
-
-    def correlations_exist(self) -> bool:
-        return os.path.isfile(os.path.join(self.serialization_dir, 'correlation.pkl'))
-
-    def results_exist(self) -> bool:
-        return self.importances_exist() and self.correlations_exist()
-
-    def _calculate_average_datapoint_length(self, instances: List[Instance]):
+        Returns:
+            int: Average length
+        """
         num_tokens_per_datapoint = [ \
                 sum( len(field) for field_name, field in instance.fields.items() if isinstance(field, TextField) ) \
                 for instance in instances \
@@ -93,10 +86,12 @@ class AttentionCorrelationTrial(Registrable):
         mean = np.floor(np.mean(num_tokens_per_datapoint))
         return int(mean)
 
+
     def _batch_dataset(
         self,
         unlabeled_instances: List[Instance]
     ) -> Generator[List[Tuple[Instance, LabelField]], None, None]:
+
         ids = iter(range(len(unlabeled_instances)))
         for b_id, instance_batch in enumerate(utils.batch(unlabeled_instances, self.batch_size)):
 
@@ -112,6 +107,7 @@ class AttentionCorrelationTrial(Registrable):
 
             yield (batch_ids, labeled_batch, actual_labels)
 
+
     def _get_suitable_attention_interpreters(self) -> List[AttentionInterpreter]:
         attention_interpreters = []
         for aggregator_type in self.predictor.get_suitable_aggregators():
@@ -120,9 +116,8 @@ class AttentionCorrelationTrial(Registrable):
                 attention_interpreters.append(AttentionInterpreter(self.predictor, analysis, aggregator))
         return attention_interpreters
 
-    def _calculate_feature_importance_batch(self, batch) -> None:
 
-        # Write to dataframe in case we want to generate heatmaps
+    def _calculate_feature_importance_batch(self, batch, progress_bar = None) -> None:
 
         feature_importance_df = {
             'seed': [],
@@ -142,14 +137,17 @@ class AttentionCorrelationTrial(Registrable):
         seed = [self.seed for _ in range(len(labeled_batch))]
 
         for interpreter in self.feature_importance_interpreters + self.attention_interpreters:
-            # we follow the Allennlp convention of returning a dictionary of {instance_id: dict of scores}
-            # but there is only one feature importance key per dict of scores, eg. {'instance_x': {'loo_scores': [...]}}
+
+            if progress_bar:
+                progress_bar.set_description(f"{interpreter.id}: interpreting {len(labeled_batch)} instances")
+
+            # Some feature importance measures are too memory-intensive to run with larger batch sizes
+            # These numbers are based on empirical tests with a standard 16GB gpu
             if 'shap' in interpreter.id or 'deep' in interpreter.id:
                 batch_scores = []
                 for sub_batch in utils.batch(labeled_batch, 2):
                     batch_scores.extend(interpreter.saliency_interpret_instances(sub_batch).values())
             elif 'intgrad' in interpreter.id:
-                # NOTE: the 32 is based on empirical tests with a standard 16GB gpu
                 kwargs = {'internal_batch_size': min(len(labeled_batch), self.batch_size, 32)}
                 batch_scores = interpreter.saliency_interpret_instances(labeled_batch, **kwargs).values()
             else:
@@ -158,12 +156,7 @@ class AttentionCorrelationTrial(Registrable):
             # # There can be more than one array of scores for an instance (e.g. in the pair sequence case)
             scores = [[np.asarray(scoreset) for scoreset in v.values()] for v in batch_scores]
 
-            if isinstance(interpreter, AttentionInterpreter):
-                self.attention_scores[interpreter.id].extend(scores)
-            else:
-                self.feature_importance_scores[interpreter.id].extend(scores)
             feature_importance_df['scores'].extend(scores)
-
             feature_importance_df['seed'].extend(seed)
             feature_importance_df['instance_id'].extend(ids)
             feature_importance_df['instance_text'].extend(batch_text)
@@ -172,129 +165,167 @@ class AttentionCorrelationTrial(Registrable):
             feature_importance_df['predicted'].extend(predicted_labels)
             feature_importance_df['actual'].extend(actual_labels)
 
+            if progress_bar:
+                progress_bar.update(1)
+
         return feature_importance_df
 
-    def _calculate_correlation_instance(
-        self,
-        frame,
-        key1,
-        key2,
-        instance_id,
-        correlation_kwargs = None,
-        non_zero_k = None
-    ):
 
-        def _get_scores_by_key_and_instance(key: str, instance_id: str):
-            if key in self.attention_scores.keys():
-                return np.concatenate(self.attention_scores[key][instance_id])
-            else:
-                return np.concatenate(self.feature_importance_scores[key][instance_id])
+    def calculate_feature_importance(self, force: bool = False) -> None:
+        pkl_exists = os.path.isfile(os.path.join(self.serialization_dir, 'feature_importance.pkl'))
 
-        # get the current instance's scores for current 2 interpreters
-        key1_score = _get_scores_by_key_and_instance(key1, instance_id)
-        key2_score = _get_scores_by_key_and_instance(key2, instance_id)
-
-        frame['measure_1'].append(key1)
-        frame['measure_2'].append(key2)
-        print(self.correlation_meaures)
-        for measure in self.correlation_measures:
-            corr_dict = measure.correlation(key1_score, key2_score, **correlation_kwargs)
-            print(corr_dict)
-            for k, v in corr_dict.items():
-                frame[k].append(v)
-                if k == 'k_non_zero' and non_zero_k:
-                    non_zero_k[(key1, key2)].append(v)
-
-    def _calculate_correlation_batch(self, batch) -> None:
-
-        corr_df = {
-            'seed': [],
-            'instance_id': [],
-            'instance_text': [],
-            'instance_fields': [],
-            'predicted': [],
-            'actual': [],
-            'measure_1': [],
-            'measure_2': [],
-        }
-
-        ids, labeled_batch, actual_labels = batch
-        for measure in self.correlation_measures:
-            for field in measure.fields:
-                corr_df[field] = []
-
-        feature_importance_measures = list(self.attention_scores.keys()) + list(self.feature_importance_scores.keys())
-        correlation_combos = list(itertools.combinations(feature_importance_measures, 2))
-
-        requires_non_zero_k = any([isinstance(cm, KendallTauTopKNonZero) for cm in self.correlation_measures])
-
-        if requires_non_zero_k:
-            non_zero_k = { (key1, key2) : [] for (key1), (key2) in correlation_combos }
+        if pkl_exists and not force:
+            self.logger.info("Feature importance scores exist and force was not specified. Loading from disk...")
+            self.feature_importance_results = pd.read_pickle(os.path.join(self.serialization_dir, 'feature_importance.pkl'))
         else:
-            non_zero_k = None
+            feature_importance_df = defaultdict(list)
+            self.logger.info('Calculating feature importance scores...')
 
-        correlation_kwargs = {
-            'average_length': self.average_data_point_length
-        }
+            num_interpreters = len(self.feature_importance_interpreters) + len(self.attention_interpreters)
+            progress_bar = Tqdm.tqdm(total=self.num_batches * num_interpreters)
 
-        for instance_id, labeled_instance, actual_label in zip(ids, labeled_batch, actual_labels):
+            for batch in self.dataset:
+                importance_scores = self._calculate_feature_importance_batch(batch, progress_bar)
+                for k, v in importance_scores.items():
+                    feature_importance_df[k].extend(v)
 
-            corr_df['seed'].extend([self.seed for _ in range(len(correlation_combos))])
-            corr_df['instance_id'].extend([instance_id for _ in range(len(correlation_combos))])
-            corr_df['instance_text'].extend([[labeled_instance[fn].tokens for fn in self.field_names] for _ in range(len(correlation_combos))])
-            corr_df['instance_fields'].extend([list(self.field_names) for _ in range(len(correlation_combos))])
-            corr_df['predicted'].extend([labeled_instance['label'].label for _ in range(len(correlation_combos))])
-            corr_df['actual'].extend([actual_label for _ in range(len(correlation_combos))])
+            self.feature_importance_results = pd.DataFrame(feature_importance_df)
+            utils.write_frame(self.feature_importance_results, self.serialization_dir, 'feature_importance')
 
-            at_least_one_attn = False
-            for (key1, key2) in correlation_combos:
-                if 'attn' in key1 or 'attn' in key2:
-                    self._calculate_correlation_instance(corr_df, key1, key2, instance_id, correlation_kwargs, non_zero_k)
-                    at_least_one_attn = True
 
-            k = None
-            if at_least_one_attn and requires_non_zero_k:
-                # Ensure the correlation calculation between the saliency interpreters and attention interpreter
-                # uses the same k value for the kendall_top_k calculation
-                recent_ks = { (key1,key2): ks[-1] for (key1, key2), ks in non_zero_k.items() if 'attn' in key1 or 'attn' in key2 }
+    #   corr_df = defaultdict(list)
 
-                if len(set(recent_ks.values())) > 1:
-                    self.logger.warning(f"Not all k values used were the same across the different comparison pairs!")
-                    self.logger.info(recent_ks)
+    #     for batch in Tqdm.tqdm(self.dataset):
+    #         importance_scores = self._calculate_feature_importance_batch(batch)
+    #         for k, v in importance_scores.items():
+    #             feature_importance_df[k].extend(v)
+    #         correlation_scores = self._calculate_correlation_batch(batch)
+    #         for k, v in correlation_scores.items():
+    #             corr_df[k].extend(v)
 
-                # Only then do correlations not involving attention, using the k value(s) used above.
-                k = int(sum(recent_ks.values()) / len(recent_ks.values()))
+    #     self.correlation_results = pd.DataFrame(corr_df)
+    #     self.feature_importance_results = pd.DataFrame(feature_importance_df)
+    #     utils.write_frame(self.correlation_results, self.serialization_dir, 'correlation')
+    #     utils.write_frame(self.feature_importance_results, self.serialization_dir, 'feature_importance')
 
-            for (key1, key2) in correlation_combos:
-                if 'attn' not in key1 and 'attn' not in key2:
-                    correlation_kwargs['k'] = k
-                    self._calculate_correlation_instance(corr_df, key1, key2, instance_id, correlation_kwargs, non_zero_k)
-                    del correlation_kwargs['k']
+    # def _calculate_correlation_instance(
+    #     self,
+    #     frame,
+    #     key1,
+    #     key2,
+    #     instance_id,
+    #     correlation_kwargs = None,
+    #     non_zero_k = None
+    # ):
 
-        return corr_df
+    #     def _get_scores_by_key_and_instance(key: str, instance_id: str):
+    #         if key in self.attention_scores.keys():
+    #             return np.concatenate(self.attention_scores[key][instance_id])
+    #         else:
+    #             return np.concatenate(self.feature_importance_scores[key][instance_id])
 
-    def calculate_importances(self):
-        feature_importance_df = defaultdict(list)
+    #     # get the current instance's scores for current 2 interpreters
+    #     key1_score = _get_scores_by_key_and_instance(key1, instance_id)
+    #     key2_score = _get_scores_by_key_and_instance(key2, instance_id)
 
-        for batch in Tqdm.tqdm(self.dataset):
-            importance_scores = self._calculate_feature_importance_batch(batch)
-            for k, v in importance_scores.items():
-                feature_importance_df[k].extend(v)
+    #     frame['measure_1'].append(key1)
+    #     frame['measure_2'].append(key2)
 
-        self.feature_importance_results = pd.DataFrame(feature_importance_df)
-        utils.write_frame(self.feature_importance_results, self.serialization_dir, 'feature_importance')
+    #     for measure in self.correlation_measures:
+    #         corr_dict = measure.correlation(key1_score, key2_score, **correlation_kwargs)
+    #         for k, v in corr_dict.items():
+    #             frame[k].append(v)
+    #             if k == 'k_non_zero' and non_zero_k:
+    #                 non_zero_k[(key1, key2)].append(v)
 
-    def calculate_scores(self):
-        corr_df = defaultdict(list)
+    # def _calculate_correlation_batch(self, batch) -> None:
 
-        for batch in Tqdm.tqdm(self.dataset):
-            correlation_scores = self._calculate_correlation_batch(batch)
-            for k, v in correlation_scores.items():
-                print(len(v))
-                corr_df[k].extend(v)
-        
-        self.correlation_results = pd.DataFrame(corr_df)
-        utils.write_frame(self.correlation_results, self.serialization_dir, 'correlation')
+    #     corr_df = {
+    #         'seed': [],
+    #         'instance_id': [],
+    #         'instance_text': [],
+    #         'instance_fields': [],
+    #         'predicted': [],
+    #         'actual': [],
+    #         'measure_1': [],
+    #         'measure_2': [],
+    #     }
+
+    #     ids, labeled_batch, actual_labels = batch
+
+    #     for measure in self.correlation_measures:
+    #         for field in measure.fields:
+    #             corr_df[field] = []
+
+    #     feature_importance_measures = list(self.attention_scores.keys()) + list(self.feature_importance_scores.keys())
+    #     correlation_combos = list(itertools.combinations(feature_importance_measures, 2))
+
+    #     requires_non_zero_k = any([isinstance(cm, KendallTauTopKNonZero) for cm in self.correlation_measures])
+
+    #     if requires_non_zero_k:
+    #         non_zero_k = { (key1, key2) : [] for (key1), (key2) in correlation_combos }
+    #     else:
+    #         non_zero_k = None
+
+    #     correlation_kwargs = {
+    #         'average_length': self.average_data_point_length
+    #     }
+
+    #     for instance_id, labeled_instance, actual_label in zip(ids, labeled_batch, actual_labels):
+
+    #         corr_df['seed'].extend([self.seed for _ in range(len(correlation_combos))])
+    #         corr_df['instance_id'].extend([instance_id for _ in range(len(correlation_combos))])
+    #         corr_df['instance_text'].extend([[labeled_instance[fn].tokens for fn in self.field_names] for _ in range(len(correlation_combos))])
+    #         corr_df['instance_fields'].extend([list(self.field_names) for _ in range(len(correlation_combos))])
+    #         corr_df['predicted'].extend([labeled_instance['label'].label for _ in range(len(correlation_combos))])
+    #         corr_df['actual'].extend([actual_label for _ in range(len(correlation_combos))])
+
+    #         at_least_one_attn = False
+
+    #         for (key1, key2) in correlation_combos:
+    #             if 'attn' in key1 or 'attn' in key2:
+    #                 self._calculate_correlation_instance(corr_df, key1, key2, instance_id, correlation_kwargs, non_zero_k)
+    #                 at_least_one_attn = True
+
+    #         k = None
+    #         if at_least_one_attn and requires_non_zero_k:
+    #             # Ensure the correlation calculation between the saliency interpreters and attention interpreter
+    #             # uses the same k value for the kendall_top_k calculation
+    #             recent_ks = { (key1,key2): ks[-1] for (key1, key2), ks in non_zero_k.items() if 'attn' in key1 or 'attn' in key2 }
+
+    #             if len(set(recent_ks.values())) > 1:
+    #                 self.logger.warning(f"Not all k values used were the same across the different comparison pairs!")
+    #                 self.logger.info(recent_ks)
+
+    #             # Only then do correlations not involving attention, using the k value(s) used above.
+    #             k = int(sum(recent_ks.values()) / len(recent_ks.values()))
+
+    #         for (key1, key2) in correlation_combos:
+    #             if 'attn' not in key1 and 'attn' not in key2:
+    #                 correlation_kwargs['k'] = k
+    #                 self._calculate_correlation_instance(corr_df, key1, key2, instance_id, correlation_kwargs, non_zero_k)
+    #                 del correlation_kwargs['k']
+
+    #     return corr_df
+
+    # def calculate_correlations(self, force: bool = False):
+
+    # def calculate_scores(self):
+    #     feature_importance_df = defaultdict(list)
+    #     corr_df = defaultdict(list)
+
+    #     for batch in Tqdm.tqdm(self.dataset):
+    #         importance_scores = self._calculate_feature_importance_batch(batch)
+    #         for k, v in importance_scores.items():
+    #             feature_importance_df[k].extend(v)
+    #         correlation_scores = self._calculate_correlation_batch(batch)
+    #         for k, v in correlation_scores.items():
+    #             corr_df[k].extend(v)
+
+    #     self.correlation_results = pd.DataFrame(corr_df)
+    #     self.feature_importance_results = pd.DataFrame(feature_importance_df)
+    #     utils.write_frame(self.correlation_results, self.serialization_dir, 'correlation')
+    #     utils.write_frame(self.feature_importance_results, self.serialization_dir, 'feature_importance')
 
     @classmethod
     def from_partial_objects(
@@ -306,7 +337,7 @@ class AttentionCorrelationTrial(Registrable):
         correlation_measures,
         batch_size,
         cuda_device,
-        nr_instances = 0 
+        nr_instances = 0
     ):
         archive = load_archive(os.path.join(serialization_dir, 'model.tar.gz'), cuda_device=cuda_device)
         predictor = Predictor.from_archive(archive, archive.config.params['model']['type'])
