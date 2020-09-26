@@ -5,7 +5,7 @@ Measures to calculate the correlation between the top-k elements of two identica
 from dataclasses import dataclass, field
 import math
 import numbers
-from typing import Dict, List, Union
+from typing import Dict, List, Optional, Union
 
 from allennlp.common import Registrable
 import numpy as np
@@ -38,9 +38,24 @@ class CorrelationMeasure(Registrable):
     """
     A uniquely identifiable measure to calculate correlation(s) between the top-k elements of two identical
     length lists of scores
+
+    Args:
+        identifier (str):
+            Unique name of the measure
+        unfair_in_isolation (Optional[bool]):
+            This metric uses a dynamic value for k which may produce correlations that cannot be compared with each
+            other directly. If so, the caller is responsible for passing in a 'fair' override for k when required.
+
+            For example: sparse attention distributions may produce scores of zero but feature importance measures
+            do not. Thus, if we are calculating the KendallTauTopKNonZero metric and want an "apples to apples"
+            comparison we must ensure the correlation calculation between two feature importance measures uses the
+            average k value from correlation calculations with at least one attention interpreter.
+
+            Defaults to False.
     """
-    def __init__(self, identifier: str):
+    def __init__(self, identifier: str, unfair_in_isolation: Optional[bool] = False): 
         self._id = identifier
+        self.unfair_in_isolation = unfair_in_isolation
 
     @property
     def id(self):
@@ -48,7 +63,7 @@ class CorrelationMeasure(Registrable):
 
     def correlation(self, a: np.ndarray, b: np.ndarray, **kwargs) -> CorrelationMap:
         """
-        Calculates a variable number of uniquely identifiable correlations between the top-k elements of two
+        Calculates a number of uniquely identifiable correlations between the top-k elements of two
         identical length lists of scores. For example, if the measure calculates the correlation between the
         top 10% of scores in a and b and the top 20% of scores the return value would look something like:
 
@@ -151,14 +166,15 @@ class KendallTauTopKFixed(CorrelationMeasure):
 class KendallTauTopKNonZero(CorrelationMeasure):
 
     def __init__(self):
-        super().__init__(identifier="kendall_top_k_non_zero")
+        super().__init__(identifier="kendall_top_k_non_zero", unfair_in_isolation=True)
 
     @enforce_same_shape
     @overrides
     def correlation(self, a: np.ndarray, b: np.ndarray, **kwargs) -> CorrelationMap:
 
         # k may be explicitly specified in some cases to ensure fair comparisons
-        k = kwargs.get('k')
+        k = kwargs.get(self.id, {}).get("k")
+        print(f'got k: {k}')
         kIsNonZero = (k==None)
 
         kt_top_k, k = kendall_top_k(a=a, b=b, kIsNonZero=kIsNonZero, k=k)

@@ -15,12 +15,15 @@ from allennlp.models.archival import load_archive
 from allennlp.predictors import Predictor
 import numpy as np
 import pandas as pd
+import statistics
 
 from ane_research.common.correlation_measures import CorrelationMeasure, KendallTauTopKNonZero
 import ane_research.common.utils as utils
 from ane_research.config import Config
 from ane_research.interpret.saliency_interpreters.attention import AttentionInterpreter
 
+
+InstanceBatch = Tuple[List[int], List[Instance], List[LabelField]]
 
 class AttentionCorrelationTrial(Registrable):
 
@@ -59,8 +62,6 @@ class AttentionCorrelationTrial(Registrable):
 
         # Dataset
         self.dataset = self._batch_dataset(instances)
-        self.dataset_length = len(instances)
-        self.average_data_point_length  = self._calculate_average_datapoint_length(instances)
         self.num_batches = math.ceil(len(instances) / self.batch_size)
 
         # Dataframes
@@ -68,30 +69,10 @@ class AttentionCorrelationTrial(Registrable):
         self.correlation_results = None
 
 
-    def _calculate_average_datapoint_length(self, instances: List[Instance]) -> int:
-        """
-        Calculate the average length of a collection of instances. The length of an Instance with multiple TextFields
-        is treated as the total length of all TextFields.
-
-        Args:
-            instances (List[Instance]): Collection of Instances
-
-        Returns:
-            int: Average length
-        """
-        num_tokens_per_datapoint = [ \
-                sum( len(field) for field_name, field in instance.fields.items() if isinstance(field, TextField) ) \
-                for instance in instances \
-            ]
-        mean = np.floor(np.mean(num_tokens_per_datapoint))
-        return int(mean)
-
-
     def _batch_dataset(
         self,
         unlabeled_instances: List[Instance]
-    ) -> Generator[List[Tuple[Instance, LabelField]], None, None]:
-
+    ) -> Generator[InstanceBatch, None, None]:
         ids = iter(range(len(unlabeled_instances)))
         for b_id, instance_batch in enumerate(utils.batch(unlabeled_instances, self.batch_size)):
 
@@ -117,18 +98,8 @@ class AttentionCorrelationTrial(Registrable):
         return attention_interpreters
 
 
-    def _calculate_feature_importance_batch(self, batch, progress_bar = None) -> None:
-
-        feature_importance_df = {
-            'seed': [],
-            'instance_id': [],
-            'instance_text': [],
-            'instance_fields': [],
-            'feature_importance_measure': [],
-            'scores': [],
-            'predicted': [],
-            'actual': []
-        }
+    def _calculate_feature_importance_batch(self, batch: InstanceBatch, progress_bar: Tqdm = None) -> None:
+        feature_importance_df = defaultdict(list)
 
         ids, labeled_batch, actual_labels = batch
         batch_text = [[li[fn].tokens for fn in self.field_names] for li in labeled_batch]
@@ -192,21 +163,28 @@ class AttentionCorrelationTrial(Registrable):
             self.feature_importance_results = pd.DataFrame(feature_importance_df)
             utils.write_frame(self.feature_importance_results, self.serialization_dir, 'feature_importance')
 
-    def _calculate_correlation_combo(self, key1, key2):
+
+    def _calculate_correlation_combo(self, key1: str, key2: str, correlation_kwargs = None):
+
+        if correlation_kwargs is None:
+            correlation_kwargs = {}
 
         corr_df = defaultdict(list)
+        fair_k_values = defaultdict(list)
 
         key1_mask = self.feature_importance_results['feature_importance_measure'].values == key1
         key2_mask = self.feature_importance_results['feature_importance_measure'].values == key2
         relevant_scores = self.feature_importance_results[key1_mask | key2_mask]
         relevant_scores = relevant_scores.groupby('instance_id').agg(lambda x: x.tolist())
+
         for row in relevant_scores.itertuples():
             instance_id, seed, text, fields = row.Index, row.seed[0], row.instance_text[0], row.instance_fields[0]
             predicted, actual = row.predicted[0], row.actual[0]
             measure_1, measure_2, key1_scores, key2_scores = *row.feature_importance_measure, *row.scores
             key1_scores, key2_scores = np.concatenate(key1_scores), np.concatenate(key2_scores)
+
             for measure in self.correlation_measures:
-                corr_dict = measure.correlation(key1_scores, key2_scores)
+                corr_dict = measure.correlation(key1_scores, key2_scores, **correlation_kwargs)
                 for name, result in corr_dict.items():
                     corr_df['instance_id'].append(instance_id)
                     corr_df['seed'].append(seed)
@@ -220,7 +198,10 @@ class AttentionCorrelationTrial(Registrable):
                     corr_df['correlation_value'].append(result.correlation)
                     corr_df['k'].append(result.k)
 
-        return corr_df
+                    if measure.unfair_in_isolation:
+                        fair_k_values[name].append(result.k)
+
+        return corr_df, fair_k_values
 
 
     def calculate_correlation(self, force: bool = False) -> None:
@@ -235,13 +216,38 @@ class AttentionCorrelationTrial(Registrable):
 
             progress_bar = Tqdm.tqdm(total=len(self.correlation_combos))
 
+            fair_k = defaultdict(lambda: defaultdict(list))
+
             for (key1, key2) in self.correlation_combos:
-                correlations = self._calculate_correlation_combo(key1, key2)
+                if 'attn' in key1 or 'attn' in key2:
+                    correlations, fair_k_values = self._calculate_correlation_combo(key1, key2)
 
-                for k, v in correlations.items():
-                    correlation_df[k].extend(v)
+                    for key, values in correlations.items():
+                        correlation_df[key].extend(values)
+                    
+                    for measure, k in fair_k_values.items():
+                        fair_k[key1][measure].extend(k)
+                        fair_k[key2][measure].extend(k)
 
-                progress_bar.update(1)
+                    progress_bar.update(1)
+
+            for (key1, key2) in self.correlation_combos:
+                if 'attn' not in key1 and 'attn' not in key2:
+                    correlation_kwargs = defaultdict(list)
+
+                    for name, k_values in fair_k.get(key1, {}).items():
+                        correlation_kwargs[name].extend(k_values)
+
+                    for name, k_values in fair_k.get(key2, {}).items():
+                        correlation_kwargs[name].extend(k_values)
+                    
+                    for name, k_values in correlation_kwargs.items():
+                        correlation_kwargs[name] = {"k": math.floor(statistics.mean(k_values))}
+
+                    correlations, _ = self._calculate_correlation_combo(key1, key2, correlation_kwargs=correlation_kwargs)
+                    for k, v in correlations.items():
+                        correlation_df[k].extend(v)
+                    progress_bar.update(1)
 
             self.correlation_results = pd.DataFrame(correlation_df)
             utils.write_frame(self.correlation_results, self.serialization_dir, 'correlation')
