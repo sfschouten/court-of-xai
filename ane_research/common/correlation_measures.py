@@ -174,7 +174,6 @@ class KendallTauTopKNonZero(CorrelationMeasure):
 
         # k may be explicitly specified in some cases to ensure fair comparisons
         k = kwargs.get("k")
-        print(f'got k: {k}')
         kIsNonZero = (k==None)
 
         kt_top_k, k = kendall_top_k(a=a, b=b, kIsNonZero=kIsNonZero, k=k)
