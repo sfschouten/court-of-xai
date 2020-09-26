@@ -42,64 +42,11 @@ class AttentionCorrelationExperiment(Registrable):
 
         self.logger =  logging.getLogger(Config.logger_name)
 
-    # TODO: cleanup and remove the hardcoded correlation fields!
-    def _summarize(self):
-        summary = self.correlation.copy()
-        summary['accuracy'] = summary['predicted'] == summary['actual']
-        summary['accuracy'] = summary['accuracy'].astype(float)
-
-        if "p_val" in summary.columns:
-            summary['p_val'] = summary['p_val'].apply(lambda p: p < 0.05)
-        summary = summary.drop(['predicted', 'instance_fields', 'instance_text'], axis=1)
-
-        # Average for each trial
-        summary = summary.groupby(['measure_1', 'measure_2', 'seed', 'actual'], as_index = False)
-        agg_by_seed = {f: ['mean'] for cm in self.correlation_measures for f in cm.fields}
-        agg_by_seed['instance_id'] = ['count']
-        agg_by_seed['accuracy'] = ['mean']
-        agg_by_seed_columns = [
-            'measure_1',
-            'measure_2',
-            'seed',
-            'class'
-        ]
-        agg_by_seed_columns.extend([f for cm in self.correlation_measures for f in cm.fields])
-        agg_by_seed_columns.extend(['instance_id', 'accuracy'])
-        summary = summary.agg(agg_by_seed)
-        summary.columns = agg_by_seed_columns
-
-        # Average, std across trials
-        summary = summary.groupby(['measure_1', 'measure_2', 'class'],  as_index=False)
-        agg_by_class = {f: ['mean', 'std'] for cm in self.correlation_measures for f in cm.fields}
-        agg_by_class['instance_id'] = ['mean']
-        agg_by_class['accuracy'] = ['mean', 'std']
-        agg_by_class_columns = [
-            'measure_1',
-            'measure_2',
-            'class'
-        ]
-        agg_by_class_columns.extend([f'{f}_{agg}' for cm in self.correlation_measures for f in cm.fields for agg in ['mean', 'std']])
-        agg_by_class_columns.extend(['instance_count', 'accuracy_mean', 'accuracy_std'])
-        summary = summary.agg(agg_by_class)
-        summary.columns = agg_by_class_columns
-        if "p_val_mean" in summary.columns:
-            summary = summary.rename(columns={"p_val_mean": "fraction_significant_mean"})
-        if "p_val_std" in summary.columns:
-            summary = summary.rename(columns={"p_val_std": "fraction_significant_std"})
-        if "k_average_length_mean" in summary.columns:
-            summary = summary.rename(columns={"k_average_length_mean": "k_average_length"})
-        if "k_average_length_std" in summary.columns:
-            summary = summary.drop(["k_average_length_std"], axis=1)
-        self.summary = summary
 
     def generate_artifacts(self):
-
-        self._summarize()
-
         # Generate Frames
         utils.write_frame(self.correlation, self.serialization_dir, 'correlations_all')
         utils.write_frame(self.feature_importance, self.serialization_dir, 'feature_importance_all')
-        utils.write_frame(self.summary, self.serialization_dir, 'results')
 
         # Save config
         config = {
