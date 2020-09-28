@@ -59,47 +59,5 @@ local batch_size = 64;
             "weight_decay": 1e-5,
             "amsgrad": true
         }
-    },
-    "attention_experiment": {
-        "feature_importance_measures": [
-            {
-                "type": "leave-one-out"
-            },
-            {
-                "type": "lime",
-                "num_samples": 250
-            },
-            {
-                "type": "captum",
-                "captum": "captum-integrated-gradients"
-            },
-            {
-                "type": "captum",
-                "captum": "captum-deepliftshap"
-            },
-            {
-                "type": "captum",
-                "captum": "captum-gradientshap"
-            },
-            {
-                "type": "captum",
-                "captum": "captum-deeplift"
-            }
-        ],
-        "correlation_measures": [
-            {
-                "type": "kendall_tau"
-            },
-            {
-                "type": "kendall_top_k_average_length"
-            }
-        ],
-        "dataset": "SST",
-        "model": "BiLSTM",
-        "compatibility_function": "Additive (tanh)",
-        "activation_function": "Uniform",
-        "batch_size": batch_size,
-        "nr_instances": 500,
-        "cuda_device": 0
     }
 }
