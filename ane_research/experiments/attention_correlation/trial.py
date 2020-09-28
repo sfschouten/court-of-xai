@@ -37,6 +37,8 @@ class AttentionCorrelationTrial(Registrable):
         serialization_dir: PathLike,
         predictor: Predictor,
         instances: List[Instance],
+        attention_aggregator_methods: Optional[List[str]],
+        attention_analysis_methods: Optional[List[str]],
         feature_importance_interpreters: List[SaliencyInterpreter],
         correlation_measures: List[CorrelationMeasure],
         batch_size: int
@@ -50,8 +52,9 @@ class AttentionCorrelationTrial(Registrable):
         self.field_names = self.predictor._model.get_field_names()
 
         # Interpreters
+        self.attention_interpreters = self._get_suitable_attention_interpreters(
+                attention_aggregator_methods, attention_analysis_methods)
         self.feature_importance_interpreters = feature_importance_interpreters
-        self.attention_interpreters = self._get_suitable_attention_interpreters()
 
         # Correlation Measures
         self.correlation_measures = correlation_measures
@@ -91,11 +94,17 @@ class AttentionCorrelationTrial(Registrable):
             yield (batch_ids, labeled_batch, actual_labels)
 
 
-    def _get_suitable_attention_interpreters(self) -> List[AttentionInterpreter]:
+    def _get_suitable_attention_interpreters(self, allowed_aggregators: List[str], allowed_analysis: List[str]) -> List[AttentionInterpreter]:
         attention_interpreters = []
         for aggregator_type in self.predictor.get_suitable_aggregators():
             for analysis in self.predictor._model.supported_attention_analysis_methods:
                 aggregator = aggregator_type()
+                if allowed_aggregators != None and aggregator.id not in allowed_aggregators:
+                    print(f"Skipping {aggregator}")
+                    continue
+                if allowed_analysis != None and analysis.value not in allowed_analysis:
+                    print(f"Skipping {analysis}")
+                    continue
                 attention_interpreters.append(AttentionInterpreter(self.predictor, analysis, aggregator))
         return attention_interpreters
 
@@ -292,6 +301,8 @@ class AttentionCorrelationTrial(Registrable):
         feature_importance_measures: List[Lazy[SaliencyInterpreter]],
         correlation_measures: List[CorrelationMeasure],
         batch_size: int,
+        attention_aggregator_methods: Optional[List[str]] = None,
+        attention_analysis_methods: Optional[List[str]] = None,
         cuda_device: Optional[Union[int, torch.device]] = None,
         nr_instances: Optional[int] = 0
     ):
@@ -310,6 +321,8 @@ class AttentionCorrelationTrial(Registrable):
             serialization_dir=serialization_dir,
             predictor=predictor,
             instances=test_instances,
+            attention_aggregator_methods=attention_aggregator_methods,
+            attention_analysis_methods=attention_analysis_methods,
             feature_importance_interpreters=feature_importance_interpreters,
             correlation_measures=correlation_measures,
             batch_size=batch_size
