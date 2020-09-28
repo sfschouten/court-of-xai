@@ -53,6 +53,7 @@ local alpha_param_re = "^.*attention\\.activation\\.alpha";
         ]
     },
     "attention_experiment": {
+        "attention_aggregator_methods": ["avg", "roll"],
         "feature_importance_measures": [
             {
                 "type": "leave-one-out"
