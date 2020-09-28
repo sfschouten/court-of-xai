@@ -18,7 +18,7 @@ local transformer_model = "distilbert-base-uncased";
     "train_data_path": std.join("/", [std.extVar("PWD"), "ane_research/datasets/SST/train.txt"]),
     "test_data_path": std.join("/", [std.extVar("PWD"), "ane_research/datasets/SST/test.txt"]),
     "validation_data_path": std.join("/", [std.extVar("PWD"), "ane_research/datasets/SST/dev.txt"]),
-    "evaluate_on_test": false,
+    "evaluate_on_test": true,
     "model": {
         "type": "distilbert_sequence_classification_from_huggingface",
         "model_name": transformer_model,
@@ -50,46 +50,5 @@ local transformer_model = "distilbert-base-uncased";
             "type": "huggingface_adamw",
             "lr": 1.0e-5
         }
-    },
-    "attention_experiment": {
-        "feature_importance_measures": [
-            {
-                "type": "leave-one-out"
-            },
-            // {
-            //     "type": "lime",
-            //     "num_samples": 250
-            // },
-            {
-                "type": "captum",
-                "captum": "captum-integrated-gradients"
-            },
-            {
-                "type": "captum",
-                "captum": "captum-deepliftshap"
-            },
-            {
-                "type": "captum",
-                "captum": "captum-gradientshap"
-            },
-            {
-                "type": "captum",
-                "captum": "captum-deeplift"
-            }
-        ],
-        "correlation_measures": [
-            {
-                "type": "kendall_tau"
-            },
-            {
-                "type": "kendall_top_k_average_length"
-            }
-        ],
-        "dataset": "SST",
-        "model": "DistilBERT",
-        "compatibility_function": "Self",
-        "activation_function": "Uniform",
-        "batch_size": batch_size,
-        "cuda_device": -1
     }
 }

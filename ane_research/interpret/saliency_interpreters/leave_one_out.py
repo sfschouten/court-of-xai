@@ -1,5 +1,6 @@
 from typing import Any, List, Dict, Union, Iterable
 import itertools
+import logging
 import torch
 from collections import defaultdict
 from allennlp.nn import util
@@ -8,6 +9,7 @@ from allennlp.data import Instance, Batch
 from allennlp.predictors import Predictor
 from allennlp.interpret.saliency_interpreters.saliency_interpreter import SaliencyInterpreter
 
+from ane_research.config import Config
 from ane_research.models.distilbert import DistilBertForSequenceClassification
 
 
@@ -17,12 +19,14 @@ class LeaveOneOut(SaliencyInterpreter):
     def __init__(self, predictor: Predictor):
         super().__init__(predictor)
         self._id = 'leave-one-out'
+        self.logger = logging.getLogger(Config.logger_name)
 
     @property
     def id(self):
         return self._id
 
     def saliency_interpret_instances(self, labeled_instances: Iterable[Instance]) -> JsonDict:
+
         batch = list(labeled_instances)
         instances_with_loo = dict()
         batch_outputs = self.predictor.predict_batch_instance(batch)

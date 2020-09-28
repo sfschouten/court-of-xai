@@ -1,15 +1,13 @@
 local encoder_hidden_size = 128;
 local embedding_dim = 300;
-local batch_size = 64;
-
 {
     "dataset_reader": {
         "type": "snli"
     },
     "train_data_path": std.join("/", [std.extVar("PWD"), "ane_research/datasets/MNLI/multinli_1.0_train.jsonl"]),
-    #"test_data_path": std.join("/", [std.extVar("PWD"), "ane_research/datasets/MNLI/multinli_0.9_test_matched_unlabeled.jsonl"]),
+    "test_data_path": std.join("/", [std.extVar("PWD"), "ane_research/datasets/MNLI/multinli_1.0_test.jsonl"]),
     "validation_data_path": std.join("/", [std.extVar("PWD"), "ane_research/datasets/MNLI/multinli_1.0_dev_matched.jsonl"]),
-    "evaluate_on_test": false,
+    "evaluate_on_test": true,
     "model": {
         "type": "pair_sequence_classifier",
         "word_embeddings": {
@@ -47,7 +45,7 @@ local batch_size = 64;
     "data_loader": {
         "batch_sampler": {
             "type": "bucket",
-            "batch_size": batch_size
+            "batch_size": 512
         }
     },
     "trainer": {
@@ -59,46 +57,5 @@ local batch_size = 64;
             "weight_decay": 1e-5,
             "amsgrad": true
         }
-    },
-    "attention_experiment": {
-        "feature_importance_measures": [
-            {
-                "type": "leave-one-out"
-            },
-            // {
-            //     "type": "lime",
-            //     "num_samples": 250
-            // },
-            {
-                "type": "captum",
-                "captum": "captum-integrated-gradients"
-            },
-            {
-                "type": "captum",
-                "captum": "captum-deepliftshap"
-            },
-            {
-                "type": "captum",
-                "captum": "captum-gradientshap"
-            },
-            {
-                "type": "captum",
-                "captum": "captum-deeplift"
-            }
-        ],
-        "correlation_measures": [
-            {
-                "type": "kendall_tau"
-            },
-            {
-                "type": "kendall_top_k_average_length"
-            }
-        ],
-        "dataset": "MNLI",
-        "model": "BiLSTM",
-        "compatibility_function": "Additive (tanh)",
-        "activation_function": "Uniform",
-        "batch_size": batch_size,
-        "cuda_device": -1
     }
 }

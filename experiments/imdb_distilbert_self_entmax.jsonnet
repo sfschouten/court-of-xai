@@ -9,7 +9,7 @@ local alpha_param_re = "^.*attention\\.activation\\.alpha";
     "train_data_path": std.join("/", [std.extVar("PWD"), "ane_research/datasets/IMDB/train.csv"]),
     "test_data_path": std.join("/", [std.extVar("PWD"), "ane_research/datasets/IMDB/test.csv"]),
     "validation_data_path": std.join("/", [std.extVar("PWD"), "ane_research/datasets/IMDB/dev.csv"]),
-    "evaluate_on_test": false,
+    "evaluate_on_test": true,
     "model": {
         "type": "distilbert_sequence_classification_from_huggingface",
         "model_name": "distilbert-base-uncased",
@@ -57,10 +57,10 @@ local alpha_param_re = "^.*attention\\.activation\\.alpha";
             {
                 "type": "leave-one-out"
             },
-            // {
-            //     "type": "lime",
-            //     "num_samples": 250
-            // },
+            {
+                "type": "lime",
+                "num_samples": 250
+            },
             {
                 "type": "captum",
                 "captum": "captum-integrated-gradients"
@@ -83,10 +83,29 @@ local alpha_param_re = "^.*attention\\.activation\\.alpha";
                 "type": "kendall_tau"
             },
             {
-                "type": "kendall_top_k_average_length"
+                "type": "spearman_rho"
             },
             {
-                "type": "kendall_top_k_non_zero"
+                "type": "pearson_r"
+            },
+            {
+                "type": "kendall_top_k_variable",
+                "percent_top_k": [
+                    0.1,
+                    0.2,
+                    0.3,
+                    0.4,
+                    0.5,
+                ],
+            },
+            {
+                "type": "kendall_top_k_fixed",
+                "fixed_top_k": [
+                    1,
+                    3,
+                    5,
+                    10
+                ],
             }
         ],
         "dataset": "IMDb",
@@ -94,6 +113,7 @@ local alpha_param_re = "^.*attention\\.activation\\.alpha";
         "compatibility_function": "Self",
         "activation_function": "Entmax",
         "batch_size": batch_size,
-        "cuda_device": -1
+        "nr_instances": 500,
+        "cuda_device": 0
     }
 }

@@ -41,7 +41,7 @@ class RunAttentionExperiment(Subcommand):
         subparser.add_argument(
             "experiment_path",
             type=str,
-            help="path to the .jsonnet file describing the attention experiment"
+            help="path to the .jsonnet file describing the attention experiment."
         )
 
         subparser.add_argument(
@@ -51,16 +51,17 @@ class RunAttentionExperiment(Subcommand):
             default=None,
             help=(\
                 "base directory in which to save models, their logs and, and their results. "\
-                "Each trial is saved in a seed_x sub-directory"\
+                "Each trial is saved in a seed_x sub-directory."\
             )
         )
 
         subparser.add_argument(
             "-s",
             "--seeds",
-            type=lambda s: list(map(int, s.split(','))),
+            type=int,
+            nargs="+",
             default=Config.seeds,
-            help="comma delimited list of random seeds. One trial will be conducted per seed"
+            help="One trial will be conducted per random seed"
         )
 
         subparser.add_argument(
@@ -68,7 +69,7 @@ class RunAttentionExperiment(Subcommand):
             "--recover",
             action="store_true",
             default=False,
-            help="recover training from the state in serialization_dir"
+            help="recover training from the state in serialization_dir."
         )
 
         subparser.add_argument(
@@ -76,15 +77,34 @@ class RunAttentionExperiment(Subcommand):
             "--force",
             action="store_true",
             required=False,
-            help="overwrite the output directory if it exists"
+            help="overwrite the output directory, including ALL trained models and dataframes if it exists."
         )
 
         subparser.add_argument(
-            "-d",
+            "--train-only",
+            action="store_true",
+            required=False,
+            help="Only train the model, do not calculate feature importance measures or correlations."
+        )
+
+        subparser.add_argument(
+            "--re-calculate",
+            choices=["correlation", "both"],
+            default=None,
+            help=(\
+                "If a model has already been trained, re-calculate the feature importance measures and their "\
+                "correlations ('both') or just the correlations ('correlation')."\
+            )
+        )
+
+        subparser.add_argument(
             "--debug",
             action="store_true",
             required=False,
-            help="debugging mode: reduce max instances to 100 and only train for one epoch"
+            help=(\
+                "debugging mode: reduce max instances to 100, only train for one epoch, "\
+                "and limit calculations to 10 instances."\
+            )
         )
 
         subparser.set_defaults(func=run_attention_experiment_from_args)
@@ -101,16 +121,20 @@ def run_attention_experiment_from_args(args: argparse.Namespace):
         seeds=args.seeds,
         recover=args.recover,
         force=args.force,
-        debug=args.debug
+        debug=args.debug,
+        train_only=args.train_only,
+        re_calculate=args.re_calculate
     )
 
 def run_attention_experiment_from_file(
     experiment_filename: PathLike,
-    serialization_dir: Union[str, PathLike] = None,
+    serialization_dir: Optional[Union[str, PathLike]] = None,
     seeds: List[int] = Config.seeds,
-    recover: bool = False,
-    force: bool = False,
-    debug: bool = False
+    recover: Optional[bool] = False,
+    force: Optional[bool] = False,
+    debug: Optional[bool] = False,
+    train_only: Optional[bool] = False,
+    re_calculate: Optional[str] = None
 ):
     """
     A wrapper around `run_attention_experiment` which loads the params from a file.
@@ -125,6 +149,7 @@ def run_attention_experiment_from_file(
     if debug:
         params['dataset_reader']['max_instances'] = 100
         params['trainer']['num_epochs'] = 1
+        params['attention_experiment']['nr_instances'] = 10
 
     run_attention_experiment(
         params=params,
@@ -132,7 +157,9 @@ def run_attention_experiment_from_file(
         serialization_dir=serialization_dir,
         seeds=seeds,
         recover=recover,
-        force=force
+        force=force,
+        train_only=train_only,
+        re_calculate=re_calculate
     )
 
 def run_trial(
@@ -140,16 +167,20 @@ def run_trial(
     train_params: Params,
     serialization_dir: PathLike,
     seed: int,
-    recover: bool = False,
-    force: bool = False
+    recover: Optional[bool] = False,
+    force: Optional[bool] = False,
+    train_only: Optional[bool] = False,
+    re_calculate: Optional[str] = None
 ) -> AttentionCorrelationTrial:
 
     _trial_params = deepcopy(trial_params)
     _train_params = deepcopy(train_params)
 
+    test_data_path = _train_params['test_data_path']
+
     trial_dir = os.path.join(serialization_dir, f"seed_{seed}")
 
-    should_train = force or not utils.model_already_trained(trial_dir)
+    should_train = any([force, not utils.model_already_trained(trial_dir), recover])
 
     if should_train:
         _train_params['random_seed'] = seed
@@ -163,12 +194,22 @@ def run_trial(
             force=force
         )
 
+    if train_only:
+        logger.info("'train-only' was specified. Finishing without calculating measures.")
+        return
+
     attention_trial = AttentionCorrelationTrial.from_params(
         params=_trial_params,
         seed=seed,
-        serialization_dir=trial_dir
+        serialization_dir=trial_dir,
+        test_data_path=test_data_path
     )
-    attention_trial.calculate_scores()
+
+    recalc_fi = re_calculate == "both"
+    recalc_corr = recalc_fi or re_calculate == "correlation"
+
+    attention_trial.calculate_feature_importance(force=recalc_fi)
+    attention_trial.calculate_correlation(force=recalc_corr)
 
     return attention_trial
 
@@ -176,18 +217,26 @@ def run_attention_experiment(
     params: Params,
     name: str,
     serialization_dir: PathLike,
-    seeds: List[int] = Config.seeds,
-    recover: bool = False,
-    force: bool = False
+    seeds: Optional[List[int]] = Config.seeds,
+    recover: Optional[bool] = False,
+    force: Optional[bool] = False,
+    train_only: Optional[bool]= False,
+    re_calculate: Optional[str] = None
 ):
 
     train_params = deepcopy(params)
-    # all params not required to train a model
-    additional_params = train_params.params.pop("attention_experiment")
-    necessary_params_for_trial = inspect.getfullargspec(AttentionCorrelationTrial.from_partial_objects)[0]
-    necessary_params_for_experiment = inspect.getfullargspec(AttentionCorrelationExperiment.from_completed_trials)[0]
-    trial_params = Params({k: v for k, v in additional_params.items() if k in necessary_params_for_trial})
-    experiment_params = Params({k: v for k, v in additional_params.items() if k in necessary_params_for_experiment})
+
+
+    if "attention_experiment" not in train_params.params:
+        logger.warn("Configuration file missing 'attention_experiment' parameters. Enabling train-only mode.")
+        train_only = True
+        trial_params = None
+    else:
+        additional_params = train_params.params.pop("attention_experiment")
+        necessary_params_for_trial = inspect.getfullargspec(AttentionCorrelationTrial.from_partial_objects)[0]
+        necessary_params_for_experiment = inspect.getfullargspec(AttentionCorrelationExperiment.from_completed_trials)[0]
+        trial_params = Params({k: v for k, v in additional_params.items() if k in necessary_params_for_trial})
+        experiment_params = Params({k: v for k, v in additional_params.items() if k in necessary_params_for_experiment})
 
     trials = []
     for seed in seeds:
@@ -198,9 +247,17 @@ def run_attention_experiment(
                 serialization_dir=serialization_dir,
                 seed=seed,
                 recover=recover,
-                force=force
+                force=force,
+                train_only=train_only,
+                re_calculate=re_calculate
             )
         )
+
+    logger.info("Finished training all models")
+
+    if train_only:
+        logger.info("'train-only' was specified. Finishing without aggregating trials.")
+        return
 
     attention_experiment = AttentionCorrelationExperiment.from_params(
         params=experiment_params,

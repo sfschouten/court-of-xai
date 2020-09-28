@@ -26,6 +26,7 @@ class LimeInterpreter(SaliencyInterpreter):
         self._id = 'lime'
         self.explainer = LimeAllenNLPInstanceExplainer(bow=False, batch_size=batch_size)
         self.num_samples = num_samples
+        self.logger = logging.getLogger(Config.logger_name)
 
     @property
     def id(self):

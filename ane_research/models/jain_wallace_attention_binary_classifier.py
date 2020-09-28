@@ -143,11 +143,11 @@ class JWAED(Model, CaptumCompatible):
     @overrides
     def get_metrics(self, reset: bool = False) -> Dict[str, float]:
         # f1 get_metric returns (precision, recall, f1)
-        precision, recall, f1_measure = self.metrics["f1_measure"].get_metric(reset=reset)
+        f1_measure = self.metrics["f1_measure"].get_metric(reset=reset)
         return {
-            "precision": precision,
-            "recall": recall,
-            "f1_measure": f1_measure,
+            "precision": f1_measure["precision"],
+            "recall": f1_measure["recall"],
+            "f1_measure": f1_measure["f1"],
             "accuracy": self.metrics["accuracy"].get_metric(reset=reset),
             "auc": self.metrics["auc"].get_metric(reset=reset)
         }

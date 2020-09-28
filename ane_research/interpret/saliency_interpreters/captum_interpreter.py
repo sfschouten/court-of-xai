@@ -61,23 +61,24 @@ class CaptumAttribution(Registrable):
     def __init__(self, identifier: str, predictor: Predictor):
         self._id = identifier
         self.predictor = predictor
+        self.logger = logging.getLogger(Config.logger_name)
 
         if not isinstance(self.predictor._model, CaptumCompatible):
             raise TypeError("Predictor._model must be CaptumCompatible.")
 
-    def saliency_interpret_instances(self, labeled_instances: Iterable[Instance]) -> JsonDict:
+    def saliency_interpret_instances(self, labeled_instances: Iterable[Instance], **kwargs) -> JsonDict:
+
         instances_with_captum_attr = dict()
 
         model = self.predictor._model
 
         captum_inputs = model.instances_to_captum_inputs(labeled_instances)
-        kwargs = self.attribute_kwargs(captum_inputs)
+        all_args = dict(**kwargs, **self.attribute_kwargs(captum_inputs))
 
         # TODO: remove disabling of CUDNN when https://github.com/pytorch/pytorch/issues/10006 is fixed
         with warnings.catch_warnings(), torch.backends.cudnn.flags(enabled=False):
             warnings.simplefilter("ignore", category=UserWarning)
-            tensors = self.attribute(**kwargs)
-
+            tensors = self.attribute(**all_args)
         field_names = model.get_field_names()
 
         # sum out the embedding dimensions to get token importance
@@ -145,8 +146,8 @@ class CaptumInterpreter(SaliencyInterpreter):
     def id(self):
         return self._id
 
-    def saliency_interpret_instances(self, labeled_instances: Iterable[Instance]) -> JsonDict:
-        return self.captum.saliency_interpret_instances(labeled_instances)
+    def saliency_interpret_instances(self, labeled_instances: Iterable[Instance], **kwargs) -> JsonDict:
+        return self.captum.saliency_interpret_instances(labeled_instances, **kwargs)
 
 
 # Below are wrapper classes for various Captum Attribution sub-classes.

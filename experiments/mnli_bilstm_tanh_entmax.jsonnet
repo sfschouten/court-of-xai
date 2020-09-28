@@ -1,15 +1,14 @@
 local encoder_hidden_size = 128;
 local embedding_dim = 300;
-local batch_size = 64;
 local alpha_param_re = "^.*attention\\.activation\\.alpha";
 {
     "dataset_reader": {
         "type": "snli"
     },
     "train_data_path": std.join("/", [std.extVar("PWD"), "ane_research/datasets/MNLI/multinli_1.0_train.jsonl"]),
-    # "test_data_path": std.join("/", [std.extVar("PWD"), "ane_research/datasets/MNLI/multinli_1.0_dev_matched.jsonl"]),
+    "test_data_path": std.join("/", [std.extVar("PWD"), "ane_research/datasets/MNLI/multinli_1.0_test.jsonl"]),
     "validation_data_path": std.join("/", [std.extVar("PWD"), "ane_research/datasets/MNLI/multinli_1.0_dev_matched.jsonl"]),
-    "evaluate_on_test": false,
+    "evaluate_on_test": true,
     "model": {
         "type": "pair_sequence_classifier",
         "word_embeddings": {
@@ -48,7 +47,7 @@ local alpha_param_re = "^.*attention\\.activation\\.alpha";
     "data_loader": {
         "batch_sampler": {
             "type": "bucket",
-            "batch_size": batch_size
+            "batch_size": 256
         }
     },
     "trainer": {
@@ -72,10 +71,10 @@ local alpha_param_re = "^.*attention\\.activation\\.alpha";
             {
                 "type": "leave-one-out"
             },
-            // {
-            //     "type": "lime",
-            //     "num_samples": 250
-            // },
+            {
+                "type": "lime",
+                "num_samples": 250
+            },
             {
                 "type": "captum",
                 "captum": "captum-integrated-gradients"
@@ -98,7 +97,29 @@ local alpha_param_re = "^.*attention\\.activation\\.alpha";
                 "type": "kendall_tau"
             },
             {
-                "type": "kendall_top_k_average_length"
+                "type": "spearman_rho"
+            },
+            {
+                "type": "pearson_r"
+            },
+            {
+                "type": "kendall_top_k_variable",
+                "percent_top_k": [
+                    0.1,
+                    0.2,
+                    0.3,
+                    0.4,
+                    0.5,
+                ],
+            },
+            {
+                "type": "kendall_top_k_fixed",
+                "fixed_top_k": [
+                    1,
+                    3,
+                    5,
+                    10
+                ],
             },
             {
                 "type": "kendall_top_k_non_zero"
@@ -108,7 +129,8 @@ local alpha_param_re = "^.*attention\\.activation\\.alpha";
         "model": "BiLSTM",
         "compatibility_function": "Additive (tanh)",
         "activation_function": "Entmax",
-        "batch_size": batch_size,
-        "cuda_device": -1
+        "batch_size": 64,
+        "nr_instances": 500,
+        "cuda_device": 0
     }
 }

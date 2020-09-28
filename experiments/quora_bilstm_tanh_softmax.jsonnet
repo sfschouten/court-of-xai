@@ -1,14 +1,13 @@
 local encoder_hidden_size = 128;
 local embedding_dim = 300;
-local batch_size = 64;
 
 {
     "dataset_reader": {
-        "type": "snli"
+        "type": "quora_paraphrase"
     },
-    "train_data_path": std.join("/", [std.extVar("PWD"), "ane_research/datasets/SNLI/snli_1.0_train.jsonl"]),
-    "test_data_path": std.join("/", [std.extVar("PWD"), "ane_research/datasets/SNLI/snli_1.0_test.jsonl"]),
-    "validation_data_path": std.join("/", [std.extVar("PWD"), "ane_research/datasets/SNLI/snli_1.0_dev.jsonl"]),
+    "train_data_path": std.join("/", [std.extVar("PWD"), "ane_research/datasets/QUORA/quora_train.tsv"]),
+    "test_data_path": std.join("/", [std.extVar("PWD"), "ane_research/datasets/QUORA/quora_test.tsv"]),
+    "validation_data_path": std.join("/", [std.extVar("PWD"), "ane_research/datasets/QUORA/quora_dev.tsv"]),
     "evaluate_on_test": true,
     "model": {
         "type": "pair_sequence_classifier",
@@ -39,7 +38,7 @@ local batch_size = 64;
             "type": "additive_basic",
             "hidden_size": encoder_hidden_size * 2,
             "activation_function": {
-                "type": "sparsemax"
+                "type": "softmax"
             }
         },
         "field_names": ["premise", "hypothesis"],
@@ -47,7 +46,7 @@ local batch_size = 64;
     "data_loader": {
         "batch_sampler": {
             "type": "bucket",
-            "batch_size": batch_size
+            "batch_size": 1024
         }
     },
     "trainer": {
@@ -114,16 +113,13 @@ local batch_size = 64;
                     5,
                     10
                 ],
-            },
-            {
-                "type": "kendall_top_k_non_zero"
             }
         ],
-        "dataset": "SNLI",
+        "dataset": "Quora",
         "model": "BiLSTM",
         "compatibility_function": "Additive (tanh)",
-        "activation_function": "Sparsemax",
-        "batch_size": batch_size,
+        "activation_function": "Softmax",
+        "batch_size": 64,
         "nr_instances": 500,
         "cuda_device": 0
     }
