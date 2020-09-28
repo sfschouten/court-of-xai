@@ -100,10 +100,10 @@ class AttentionCorrelationTrial(Registrable):
             for analysis in self.predictor._model.supported_attention_analysis_methods:
                 aggregator = aggregator_type()
                 if allowed_aggregators != None and aggregator.id not in allowed_aggregators:
-                    print(f"Skipping {aggregator}")
+                    self.logger.info(f"Skipping {aggregator}")
                     continue
                 if allowed_analysis != None and analysis.value not in allowed_analysis:
-                    print(f"Skipping {analysis}")
+                    self.logger.info(f"Skipping {analysis}")
                     continue
                 attention_interpreters.append(AttentionInterpreter(self.predictor, analysis, aggregator))
         return attention_interpreters
