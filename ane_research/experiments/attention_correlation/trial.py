@@ -37,23 +37,22 @@ class AttentionCorrelationTrial(Registrable):
         serialization_dir: PathLike,
         predictor: Predictor,
         instances: List[Instance],
-        attention_aggregator_methods: Optional[List[str]],
-        attention_analysis_methods: Optional[List[str]],
+        attention_interpreters: List[AttentionInterpreter],
         feature_importance_interpreters: List[SaliencyInterpreter],
         correlation_measures: List[CorrelationMeasure],
-        batch_size: int
+        batch_size: int,
+        logger: Optional[logging.Logger] = None
     ):
         # Trial parameters
         self.seed = seed
         self.serialization_dir = serialization_dir
         self.predictor = predictor
         self.batch_size = batch_size
-        self.logger = logging.getLogger(Config.logger_name)
+        self.logger = logger or logging.getLogger(Config.logger_name)
         self.field_names = self.predictor._model.get_field_names()
 
         # Interpreters
-        self.attention_interpreters = self._get_suitable_attention_interpreters(
-                attention_aggregator_methods, attention_analysis_methods)
+        self.attention_interpreters = attention_interpreters
         self.feature_importance_interpreters = feature_importance_interpreters
 
         # Correlation Measures
@@ -92,21 +91,6 @@ class AttentionCorrelationTrial(Registrable):
             ]
 
             yield (batch_ids, labeled_batch, actual_labels)
-
-
-    def _get_suitable_attention_interpreters(self, allowed_aggregators: List[str], allowed_analysis: List[str]) -> List[AttentionInterpreter]:
-        attention_interpreters = []
-        for aggregator_type in self.predictor.get_suitable_aggregators():
-            for analysis in self.predictor._model.supported_attention_analysis_methods:
-                aggregator = aggregator_type()
-                if allowed_aggregators != None and aggregator.id not in allowed_aggregators:
-                    self.logger.info(f"Skipping {aggregator}")
-                    continue
-                if allowed_analysis != None and analysis.value not in allowed_analysis:
-                    self.logger.info(f"Skipping {analysis}")
-                    continue
-                attention_interpreters.append(AttentionInterpreter(self.predictor, analysis, aggregator))
-        return attention_interpreters
 
 
     def _calculate_feature_importance_batch(self, batch: InstanceBatch, progress_bar: Tqdm = None) -> None:
@@ -306,13 +290,41 @@ class AttentionCorrelationTrial(Registrable):
         cuda_device: Optional[Union[int, torch.device]] = None,
         nr_instances: Optional[int] = 0
     ):
+        logger = logging.getLogger(Config.logger_name)
+
         archive = load_archive(os.path.join(serialization_dir, 'model.tar.gz'), cuda_device=cuda_device)
         predictor = Predictor.from_archive(archive, archive.config.params['model']['type'])
 
         test_instances = list(predictor._dataset_reader.read(test_data_path))
         if nr_instances:
+            logger.info(f'Selecting a random subset of {nr_instances} for interpretation')
             random.seed(seed)
             test_instances = random.sample(test_instances, min(len(test_instances), nr_instances))
+
+        attention_interpreters = []
+        for aggregator_type in predictor.get_suitable_aggregators():
+            for analysis in predictor._model.supported_attention_analysis_methods:
+                aggregator = aggregator_type()
+                if attention_aggregator_methods != None and aggregator.id not in attention_aggregator_methods:
+                    logger.info(
+                        f"Combination of aggregator method '{aggregator.id}' and analysis method "
+                        f"'{analysis.value}' not requested and will be ignored"
+                    )
+                    continue
+                if attention_analysis_methods != None and analysis.value not in attention_analysis_methods:
+                    logger.info(
+                        f"Combination of analysis method '{analysis.value}' and aggregator method "
+                        f"'{aggregator.id}' not requested and will be ignored"
+                    )
+                    continue
+                attention_interpreters.append(
+                    AttentionInterpreter(
+                        predictor=predictor,
+                        analysis_method=analysis,
+                        aggregate_method=aggregator
+                    )
+                )
+
 
         feature_importance_interpreters = [fi.construct(predictor=predictor) for fi in feature_importance_measures]
 
@@ -321,11 +333,11 @@ class AttentionCorrelationTrial(Registrable):
             serialization_dir=serialization_dir,
             predictor=predictor,
             instances=test_instances,
-            attention_aggregator_methods=attention_aggregator_methods,
-            attention_analysis_methods=attention_analysis_methods,
+            attention_interpreters=attention_interpreters,
             feature_importance_interpreters=feature_importance_interpreters,
             correlation_measures=correlation_measures,
-            batch_size=batch_size
+            batch_size=batch_size,
+            logger=logger
         )
 
 AttentionCorrelationTrial.register("default", constructor="from_partial_objects")(AttentionCorrelationTrial)
