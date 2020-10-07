@@ -109,13 +109,10 @@ class AttentionCorrelationTrial(Registrable):
 
             # Some feature importance measures are too memory-intensive to run with larger batch sizes
             # These numbers are based on empirical tests with a standard 16GB gpu
-            if 'shap' in interpreter.id or 'deep' in interpreter.id:
+            if 'shap' in interpreter.id or 'deep' in interpreter.id or 'intgrad' in interpreter.id:
                 batch_scores = []
                 for sub_batch in utils.batch(labeled_batch, 2):
                     batch_scores.extend(interpreter.saliency_interpret_instances(sub_batch).values())
-            elif 'intgrad' in interpreter.id:
-                kwargs = {'internal_batch_size': min(len(labeled_batch), self.batch_size, 32)}
-                batch_scores = interpreter.saliency_interpret_instances(labeled_batch, **kwargs).values()
             else:
                 batch_scores = interpreter.saliency_interpret_instances(labeled_batch).values()
 
