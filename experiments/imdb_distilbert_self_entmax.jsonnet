@@ -53,11 +53,10 @@ local alpha_param_re = "^.*attention\\.activation\\.alpha";
         ]
     },
     "attention_experiment": {
-        "attention_aggregator_methods": ["avg", "roll"],
+        "attention_aggregator_methods": [
+            "roll"
+        ],
         "feature_importance_measures": [
-            {
-                "type": "leave-one-out"
-            },
             {
                 "type": "lime",
                 "num_samples": 250
@@ -92,18 +91,14 @@ local alpha_param_re = "^.*attention\\.activation\\.alpha";
             {
                 "type": "kendall_top_k_variable",
                 "percent_top_k": [
-                    0.1,
-                    0.2,
-                    0.3,
-                    0.4,
+                    0.25,
                     0.5,
+                    1.0
                 ],
             },
             {
                 "type": "kendall_top_k_fixed",
                 "fixed_top_k": [
-                    1,
-                    3,
                     5,
                     10
                 ],
@@ -113,7 +108,7 @@ local alpha_param_re = "^.*attention\\.activation\\.alpha";
         "model": "DistilBERT",
         "compatibility_function": "Self",
         "activation_function": "Entmax",
-        "batch_size": batch_size,
+        "batch_size": 16,
         "nr_instances": 500,
         "cuda_device": 0
     }

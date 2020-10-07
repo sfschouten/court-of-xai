@@ -63,9 +63,6 @@ local batch_size = 64;
     "attention_experiment": {
         "feature_importance_measures": [
             {
-                "type": "leave-one-out"
-            },
-            {
                 "type": "lime",
                 "num_samples": 250
             },
@@ -99,18 +96,14 @@ local batch_size = 64;
             {
                 "type": "kendall_top_k_variable",
                 "percent_top_k": [
-                    0.1,
-                    0.2,
-                    0.3,
-                    0.4,
+                    0.25,
                     0.5,
+                    1.0
                 ],
             },
             {
                 "type": "kendall_top_k_fixed",
                 "fixed_top_k": [
-                    1,
-                    3,
                     5,
                     10
                 ],

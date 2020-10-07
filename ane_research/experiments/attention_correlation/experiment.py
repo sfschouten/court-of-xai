@@ -43,8 +43,16 @@ class AttentionCorrelationExperiment(Registrable):
         self.logger =  logging.getLogger(Config.logger_name)
 
 
+    def _summarize(self):
+        summary = self.correlation.copy()
+        summary = summary.drop(['instance_id', 'seed', 'actual', 'predicted', 'instance_fields', 'instance_text'], axis=1)
+        summary = summary.groupby(['feature_importance_measure_1', 'feature_importance_measure_2', 'correlation_measure'], as_index = False).mean()
+        self.summary = summary
+
     def generate_artifacts(self):
+        self._summarize()
         # Generate Frames
+        utils.write_frame(self.summary, self.serialization_dir, 'summary')
         utils.write_frame(self.correlation, self.serialization_dir, 'correlations_all')
         utils.write_frame(self.feature_importance, self.serialization_dir, 'feature_importance_all')
 
