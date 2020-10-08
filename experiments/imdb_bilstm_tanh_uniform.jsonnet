@@ -57,6 +57,6 @@ local batch_size = 64;
             "type": "adam",
             "weight_decay": 1e-5,
             "amsgrad": true,
-        },
+        }
     }
 }

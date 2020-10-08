@@ -113,7 +113,6 @@ local embedding_dim = 300;
         "compatibility_function": "Additive (tanh)",
         "activation_function": "Softmax",
         "batch_size": 64,
-        "nr_instances": 500,
-        "cuda_device": 0
+        "nr_instances": 500
     }
 }

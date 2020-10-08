@@ -8,6 +8,7 @@ from os import PathLike
 from typing import Any, Dict, List, Generator, Optional, Tuple, Union
 
 from allennlp.common import Lazy, Registrable, Tqdm
+from allennlp.common.checks import check_for_gpu
 from allennlp.data import Instance
 from allennlp.data.fields import TextField, LabelField
 from allennlp.interpret import SaliencyInterpreter
@@ -288,6 +289,16 @@ class AttentionCorrelationTrial(Registrable):
         nr_instances: Optional[int] = 0
     ):
         logger = logging.getLogger(Config.logger_name)
+
+        if cuda_device is None:
+            from torch import cuda
+
+            if cuda.device_count() > 0:
+                cuda_device = 0
+            else:
+                cuda_device = -1
+
+        check_for_gpu(cuda_device)
 
         archive = load_archive(os.path.join(serialization_dir, 'model.tar.gz'), cuda_device=cuda_device)
         predictor = Predictor.from_archive(archive, archive.config.params['model']['type'])

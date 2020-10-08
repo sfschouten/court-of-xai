@@ -48,6 +48,6 @@ local batch_size = 64;
         "optimizer": {
             "type": "huggingface_adamw",
             "lr": 2.0e-5
-        },
+        }
     }
 }
