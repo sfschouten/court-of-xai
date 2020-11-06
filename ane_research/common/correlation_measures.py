@@ -186,7 +186,7 @@ class KendallTauTopKNonZero(CorrelationMeasure):
 @CorrelationMeasure.register("weighted_kendall_tau")
 class WeightedKendallTau(CorrelationMeasure):
 
-    def __init__(self, alphas: List[int]):
+    def __init__(self, alphas: List[float]):
         super().__init__(identifier="weighted_kendall_tau")
         self.alphas = alphas
 
