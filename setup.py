@@ -52,7 +52,9 @@ REQUIRED = [
   'requests',
   'python-json-logger',
   'lime',
-  'captum'
+  'captum',
+  'pyircor',
+  'llvmlite==0.32.1'
 ]
 
 SETUP = [

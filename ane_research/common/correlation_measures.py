@@ -10,7 +10,8 @@ from typing import Dict, List, Optional, Union
 from allennlp.common import Registrable
 import numpy as np
 from overrides import overrides
-from scipy.stats import kendalltau, spearmanr, pearsonr
+from pyircor.tauap import tauap_b
+from scipy.stats import kendalltau, spearmanr, pearsonr, weightedtau
 
 from ane_research.common.kendall_top_k import kendall_top_k
 
@@ -179,4 +180,37 @@ class KendallTauTopKNonZero(CorrelationMeasure):
         kt_top_k, k = kendall_top_k(a=a, b=b, kIsNonZero=kIsNonZero, k=k)
         return {
             self.id: CorrelationResult(correlation=kt_top_k, k=k)
+        }
+
+
+@CorrelationMeasure.register("weighted_kendall_tau")
+class WeightedKendallTau(CorrelationMeasure):
+
+    def __init__(self, alphas: List[float]):
+        super().__init__(identifier="weighted_kendall_tau")
+        self.alphas = alphas
+
+    @enforce_same_shape
+    @overrides
+    def correlation(self, a: np.ndarray, b: np.ndarray, **kwargs) -> CorrelationMap:
+        results = {}
+        for alpha in self.alphas:
+            weigher = lambda x: (1 / (x + 1) ** alpha)
+            wkt, _ = weightedtau(a, b, weigher=weigher)
+            results[f"{self.id}_{alpha}"] = CorrelationResult(correlation=wkt, k=len(a))
+        return results
+
+
+@CorrelationMeasure.register("kendall_tau_ap_b")
+class KendallTauAPB(CorrelationMeasure):
+
+    def __init__(self):
+        super().__init__(identifier="kendall_tau_ap_b")
+
+    @enforce_same_shape
+    @overrides
+    def correlation(self, a: np.ndarray, b: np.ndarray, **kwargs) -> CorrelationMap:
+        tau_ap_b = tauap_b(a, b)
+        return {
+            self.id: CorrelationResult(correlation=tau_ap_b, k=len(a))
         }
