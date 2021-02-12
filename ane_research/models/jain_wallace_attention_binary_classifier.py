@@ -138,8 +138,7 @@ class JWAED(Model, CaptumCompatible):
 
             output_dict = {}
             output_dict["embedding"] = embedded_tokens
-            # target = None because output is a single scalar
-            return (embedded_tokens,), None, (tokens_mask, output_dict)
+            return (embedded_tokens,), 0, (tokens_mask, output_dict)
 
     @overrides
     def get_metrics(self, reset: bool = False) -> Dict[str, float]:
