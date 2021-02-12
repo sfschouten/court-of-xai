@@ -172,8 +172,8 @@ class CaptumAttribution(Registrable):
             # see: https://captum.ai/api/lime.html for the definition of a feature mask
             input_tensor = inputs[0]
             bs, seq_len, emb_dim = input_tensor.shape
-            size = bs * seq_len * emb_dim
-            feature_mask = torch.tensor(list(range(0, size))).reshape(input_tensor.shape)
+            feature_mask = torch.tensor(list(range(bs * seq_len))).reshape([bs, seq_len, 1])
+            feature_mask = feature_mask.expand(-1, -1, emb_dim)
             attr_kwargs['feature_mask'] = feature_mask # (bs, seq_len, emb_dim)
 
         return attr_kwargs
