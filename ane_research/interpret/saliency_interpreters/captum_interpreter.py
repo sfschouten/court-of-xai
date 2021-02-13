@@ -109,10 +109,15 @@ class CaptumAttribution(Registrable):
             tensors = self.attribute(**all_args)
         field_names = model.get_field_names()
 
-        # sum out the embedding dimensions to get token importance
         attributions = {}
         for field, tensor in zip(field_names, tensors):
-            attributions[field] = tensor.sum(dim=-1).abs()
+            # Attributions were calculated per token, so each scalar in the embedding dimension will be the same
+            if self.mask_features_by_token:
+                attributions[field] = tensor.mean(dim=-1).abs()
+            # Otherwise, sum out the embedding dimensions to get token importance
+            else:
+                attributions[field] = tensor.sum(dim=-1).abs()
+
             batch_size, _, _ = tensor.shape
 
 
