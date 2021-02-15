@@ -69,8 +69,13 @@ local alpha_param_re = "^.*attention\\.activation\\.alpha";
     "attention_experiment": {
         "feature_importance_measures": [
             {
-                "type": "lime",
-                "num_samples": 250
+                "type": "captum",
+                "captum": {
+                    "type": "captum-lime",
+                    "attribute_args": {
+                        "n_samples": 1000
+                    }
+                }
             },
             {
                 "type": "captum",
