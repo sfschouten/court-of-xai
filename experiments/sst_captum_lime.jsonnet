@@ -66,7 +66,6 @@ local batch_size = 64;
                 "type": "captum",
                 "captum": {
                     "type": "captum-lime",
-                    "mask_features_by_token": true,
                     "attribute_args": {
                         "n_samples": 1000
                     }
@@ -75,7 +74,11 @@ local batch_size = 64;
             {
                 "type": "captum",
                 "captum": "captum-deepliftshap"
-            }
+            },
+            {
+                "type": "captum",
+                "captum": "captum-ablation"
+            },
         ],
         "correlation_measures": [
             {

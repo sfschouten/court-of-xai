@@ -265,7 +265,7 @@ class CaptumLIME(CaptumAttribution, Lime):
     def __init__(
         self,
         predictor: Predictor,
-        mask_features_by_token: bool = False,
+        mask_features_by_token: bool = True,
         attribute_args: Dict[str, Any] = None
     ):
         CaptumAttribution.__init__(self, 'lime', predictor, mask_features_by_token, attribute_args)
@@ -273,3 +273,18 @@ class CaptumLIME(CaptumAttribution, Lime):
         self.submodel = self.predictor._model.captum_sub_model()
         Lime.__init__(self, self.submodel, self.lin_model)
 
+
+# ---Feature Ablation---
+from captum.attr import FeatureAblation
+@CaptumAttribution.register('captum-ablation')
+class CaptumFeatureAblation(CaptumAttribution, FeatureAblation):
+
+    def __init__(
+        self,
+        predictor: Predictor,
+        mask_features_by_token: bool = True,
+        attribute_args: Dict[str, Any] = None
+    ):
+        CaptumAttribution.__init__(self, 'feature_ablation', predictor, mask_features_by_token, attribute_args)
+        self.submodel = self.predictor._model.captum_sub_model()
+        FeatureAblation.__init__(self, self.submodel)
