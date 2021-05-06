@@ -14,9 +14,9 @@ local batch_size = 64;
         }},
         "combine_input_fields" : true,
     },
-    "train_data_path": std.join("/", [std.extVar("PWD"), "ane_research/datasets/MNLI/multinli_1.0_train.jsonl"]),
-    "test_data_path": std.join("/", [std.extVar("PWD"), "ane_research/datasets/MNLI/multinli_1.0_test.jsonl"]),
-    "validation_data_path": std.join("/", [std.extVar("PWD"), "ane_research/datasets/MNLI/multinli_1.0_dev_matched.jsonl"]),
+    "train_data_path": std.join("/", [std.extVar("PWD"), "datasets/MNLI/multinli_1.0_train.jsonl"]),
+    "test_data_path": std.join("/", [std.extVar("PWD"), "datasets/MNLI/multinli_1.0_test.jsonl"]),
+    "validation_data_path": std.join("/", [std.extVar("PWD"), "datasets/MNLI/multinli_1.0_dev_matched.jsonl"]),
     "evaluate_on_test": true,
     "model": {
         "type": "distilbert_sequence_classification_from_huggingface",

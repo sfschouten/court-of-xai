@@ -5,9 +5,9 @@ local embedding_dim = 300;
     "dataset_reader": {
         "type": "snli"
     },
-    "train_data_path": std.join("/", [std.extVar("PWD"), "ane_research/datasets/MNLI/multinli_1.0_train.jsonl"]),
-    "test_data_path": std.join("/", [std.extVar("PWD"), "ane_research/datasets/MNLI/multinli_1.0_test.jsonl"]),
-    "validation_data_path": std.join("/", [std.extVar("PWD"), "ane_research/datasets/MNLI/multinli_1.0_dev_matched.jsonl"]),
+    "train_data_path": std.join("/", [std.extVar("PWD"), "datasets/MNLI/multinli_1.0_train.jsonl"]),
+    "test_data_path": std.join("/", [std.extVar("PWD"), "datasets/MNLI/multinli_1.0_test.jsonl"]),
+    "validation_data_path": std.join("/", [std.extVar("PWD"), "datasets/MNLI/multinli_1.0_dev_matched.jsonl"]),
     "evaluate_on_test": true,
     "model": {
         "type": "pair_sequence_classifier",

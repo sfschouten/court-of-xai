@@ -1,6 +1,6 @@
 import unittest
 
-from ane_research.common.kendall_top_k import *
+from xai_court.common.kendall_top_k import *
 
 
 class TestStringMethods(unittest.TestCase):
