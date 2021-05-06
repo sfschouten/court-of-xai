@@ -5,9 +5,9 @@ local alpha_param_re = "^.*attention\\.activation\\.alpha";
     "dataset_reader": {
         "type": "quora_paraphrase"
     },
-    "train_data_path": std.join("/", [std.extVar("PWD"), "ane_research/datasets/QUORA/quora_train.tsv"]),
-    "test_data_path": std.join("/", [std.extVar("PWD"), "ane_research/datasets/QUORA/quora_test.tsv"]),
-    "validation_data_path": std.join("/", [std.extVar("PWD"), "ane_research/datasets/QUORA/quora_dev.tsv"]),
+    "train_data_path": std.join("/", [std.extVar("PWD"), "datasets/QUORA/quora_train.tsv"]),
+    "test_data_path": std.join("/", [std.extVar("PWD"), "datasets/QUORA/quora_test.tsv"]),
+    "validation_data_path": std.join("/", [std.extVar("PWD"), "datasets/QUORA/quora_dev.tsv"]),
     "evaluate_on_test": true,
     "model": {
         "type": "pair_sequence_classifier",

@@ -20,26 +20,26 @@ class PylintCommand(distutils.cmd.Command):
   def run(self):
     command = ['pylint']
     command.append(f'--rcfile={os.path.abspath(".pylintrc")}')
-    command.append('ane_research')
+    command.append('xai_court')
     self.announce(f'Running command: {command}', level=distutils.log.INFO)
     subprocess.check_call(command)
 
 
 # Package meta-data
-NAME = 'attention-explanation'
-DESCRIPTION = 'Research into the potential role of attention as token importance.'
-URL = 'https://github.com/sfschouten/attention-explanation'
-EMAIL = 'michael.neely@student.uva.nl'
+NAME = 'court-of-xai'
+DESCRIPTION = 'A framework to design and run experiments to calculate different correlation metrics between feature additive explanation methods'
+URL = 'https://github.com/sfschouten/court-of-xai'
+EMAIL = 'michael@mneely.tech, sfschouten@gmail.com'
 AUTHOR = 'Michael J. Neely, Stefan F. Schouten'
 REQUIRES_PYTHON = '>=3.6'
-VERSION = '0.0.1'
+VERSION = '1.0.0'
 
 REQUIRED = [
   'pandas',
   'nltk',
   'tqdm',
   'numpy',
-  'allennlp>=1.0.0',
+  'allennlp==1.1.0',
   'allennlp-models>=1.0.0',
   'scipy',
   'seaborn',
@@ -92,7 +92,7 @@ setup(
   author_email=EMAIL,
   python_requires=REQUIRES_PYTHON,
   url=URL,
-  py_modules=['ane_research'],
+  py_modules=['xai_court'],
   install_requires=REQUIRED,
   setup_requires=SETUP,
   tests_require=TEST,

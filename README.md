@@ -1,84 +1,101 @@
-## TODO
-- abstract
-- new name for ane\_research
+# Court of XAI
 
-# Sparse Attention is Consistent with Feature Importance
+## Introduction
 
-## Abstract
-
-## Authors
-
-- Michael J. Neely
-- Stefan F. Schouten
-
-## Datasets
-- Quora (https://drive.google.com/file/d/12b-cq6D45U5c-McPoq2wsFjzs6QduY_y/view?usp=sharing)
-  - Our split (80/10/10), question pairs with combined word count greater than 200 were removed.
-- SNLI (https://nlp.stanford.edu/projects/snli/)
-- MultiNLI (https://cims.nyu.edu/~sbowman/multinli/) (get the test set from [here](https://cims.nyu.edu/~sbowman/xnli/) and run the `extract_mnli_test_en.py` script)
-- IMDb
-- SST-2
+Code to reproduce the results reported in the paper: "Order in the Court: Explainable AI Methods Prone to Disagreement". Our framework can be used to design and run additional experiments to calculate different correlation metrics between feature additive explanation methods. Currently, we assume you are interested in comparing at least one attention-based explanation method.
 
 ## Setup
+
+### Installation
 
 Prepare a Python virtual environment and install the necessary packages.
 
 ```shell
- python3 -m venv v-ane-research
- source v-ane-research/bin/activate
- pip install torch torchvision torchtext
- pip install -r requirements.txt
- python -m spacy download en
+python3 -m venv v-xai-court
+source v-xai-court/bin/activate
+pip install --upgrade pip
+pip install torch torchtext
+pip install -r requirements.txt
+python -m spacy download en
 ```
 
-## Reproducing our Experiments
+### Datasets
 
-From the base directory:
+Datasets are stored in the `datasets/` folder. We include the IMDb and SST-2 datasets with the same splits and pre-processing steps as used in [(Jain and Wallace 2019)](https://arxiv.org/abs/1902.10186). To download the other datasets:
 
-### Option 1
+- [Quora](https://drive.google.com/file/d/12b-cq6D45U5c-McPoq2wsFjzs6QduY_y/view?usp=sharing)
+  - Our split (80/10/10), question pairs with combined word count greater than 200 were removed.
+- [SNLI](https://nlp.stanford.edu/projects/snli/)
+- [MultiNLI](https://cims.nyu.edu/~sbowman/multinli/)
+  - Get the test set from [here](https://cims.nyu.edu/~sbowman/xnli/) and run `scripts/extract_mnli_test_en.py`
 
-Run all AllenNLP `Jsonnet` files in the `experiments` directory:
+## Reproducing our Paper
 
-```sh
-python run_experiment.py
+We have implemented a custom [AllenNLP](https://github.com/allenai/allennlp/) command to run our experiments. We define each experiment as consisting of four variables:
+
+- The dataset (IMDb, SST-2, Quora Question Pair, SNLI, MultiNLI)
+- The model (BiLSTM, DistilBERT)
+- The attention mechanism (additive (tanh), self-attention)
+- The attention activation function (softmax, uniform, etc...)
+
+Thus the experiment files are named `{dataset}_{model}_{attention_mechanism}_{activation_function}.jsonnet`. Our experiments are located in the `experiments/` folder.
+
+Since we train three independently-seeded models PER experiment, it may take several days to run all of our experiments. A GPU with CUDA and 16GB of memory is **strongly** recommended.
+
+To run an experiment simply call our custom command with the path to the experiment file. For example:
+
+```shell
+allennlp attn-experiment experiments/sst_distilbert_self_softmax.jsonnet
 ```
 
-### Option 2
+By default, the generated artifacts are available in the `outputs` directory. This includes the models, their configurations, and their metrics.
+When the experiments finish, a .csv summary of the correlation results in available in `outputs/{experiment_file_name}/summary.csv`. We used these summary files to generate our tables.
 
-Run a specific `Jsonnet` experiment
-
-```sh
-python run_experiment.py --experiment_path experiments/sst_tanh_sparsemax.jsonnet
-```
-
-### Option 3
-
-Open the `replicate_paper.ipynb` iPython notebook with your preferred Jupyter server.
-
-### Option 4
-
-Instantiate a new `Experiment` class in your own Python file.
-
-## Viewing the Results
-
-Trained models and experiment results are located in the `outputs` directory, indexed by experiment file name and timestamp. You can view the correlation graphs as `.png`, `.svg`, or `.pdf` images in the `graphs` sub-folder. You can view the correlation statistics in the `correlation` sub-folder.
-
-## Extending our Research
+## Running your own Experiment
 
 Since our code uses AllenNLP, you can easily add a new `Jsonnet` experiment file to the `experiments` directory.
 
-## Linting
-Simply run `python setup.py lint`
+We currently support the following components (see the existing experiment files for examples on how to use them):
+
+- Tasks/Datasets
+  - Single Sequence: Binary Sentiment Classification
+    - IMDb Movie Reviews
+    - Stanford Sentiment Treebank
+  - Pair Sequence: Natural Language Inference
+    - Quora Question Pairs
+    - SNLI
+    - MultiNLI
+- Models
+  - BiLSTM with (tanh) additive attention
+  - [DistilBERT](https://arxiv.org/abs/1910.01108)
+- Attention activation functions
+  - Softmax
+  - Uniform
+  - [Sparsemax](https://arxiv.org/pdf/1602.02068.pdf)
+  - [Alpha Entmax](https://www.aclweb.org/anthology/P19-1146) (alpha = 1.5 or learned)
+- Attention aggregation and analysis methods:
+  - Average: for the Transformer, averages attention across layers, heads, and max pools across the last dimension of attention matrix
+  - [Attention Flow](https://www.aclweb.org/anthology/2020.acl-main.385/): for the Transformer
+  - [Attention Rollout](https://www.aclweb.org/anthology/2020.acl-main.385/): for the Transformer
+  - [Attention Norms](https://www.aclweb.org/anthology/2020.emnlp-main.574): as an additional analysis method for any attention mechanism
+- Additive Feature Importance Methods (from [Captum](https://captum.ai/))
+  - [LIME](https://arxiv.org/abs/1602.04938)
+  - Feature Ablation
+  - [Integrated Gradients](https://arxiv.org/abs/1703.01365)
+  - [DeepLIFT](https://arxiv.org/abs/1704.02685)
+  - [Gradient SHAP](http://papers.nips.cc/paper/7062-a-unified-approach-to-interpreting-model-predictions.pdf)
+  - [Deep SHAP]((http://papers.nips.cc/paper/7062-a-unified-approach-to-interpreting-model-predictions.pdf))
+  - Attention (see previous)
+- Correlation metrics
+  - Kendall-tau
+  - [Top-k Kendall-tau](https://www.researchgate.net/publication/2537159_Comparing_Top_k_Lists). This is a custom implementation where k can be a fixed number of tokens, variable percentage, or non-zero attribution values.
+  - [Weighted Kendall-tau](https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.weightedtau.html)
+  - Yilmaz tauAP where ties are allowed. Taken from [Pyircor](https://github.com/eldrin/pyircor)
+  - Spearman-r
+  - Pearson-rho
 
 ## Citation
 
 ```bibtex
-@misc{jain2019attention,
-    title={Attention is not Explanation},
-    author={Sarthak Jain and Byron C. Wallace},
-    year={2019},
-    eprint={1902.10186},
-    archivePrefix={arXiv},
-    primaryClass={cs.CL}
-}
+
 ```

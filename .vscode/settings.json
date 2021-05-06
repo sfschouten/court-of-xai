@@ -1,7 +1,7 @@
 {
-  "python.pythonPath": "v-ane-research/bin/python3",
+  "python.pythonPath": "v-xai-court/bin/python3",
   "python.linting.pylintEnabled": true,
-  "python.linting.pylintPath": "v-ane-research/bin/pylint",
+  "python.linting.pylintPath": "v-xai-court/bin/pylint",
   "python.linting.lintOnSave": true,
   "python.linting.pylintArgs": [
     "--errors-only",

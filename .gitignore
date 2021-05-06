@@ -115,4 +115,6 @@ outputs/*
 *.swp
 
 # datasets
-ane_research/datasets/
+datasets/*
+!datasets/SST
+!datasets/IMDB

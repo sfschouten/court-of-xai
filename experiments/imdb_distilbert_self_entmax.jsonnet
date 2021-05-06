@@ -6,9 +6,9 @@ local alpha_param_re = "^.*attention\\.activation\\.alpha";
         "max_review_length": 240,
         "pretrained_tokenizer": "distilbert-base-uncased"
     },
-    "train_data_path": std.join("/", [std.extVar("PWD"), "ane_research/datasets/IMDB/train.csv"]),
-    "test_data_path": std.join("/", [std.extVar("PWD"), "ane_research/datasets/IMDB/test.csv"]),
-    "validation_data_path": std.join("/", [std.extVar("PWD"), "ane_research/datasets/IMDB/dev.csv"]),
+    "train_data_path": std.join("/", [std.extVar("PWD"), "datasets/IMDB/train.csv"]),
+    "test_data_path": std.join("/", [std.extVar("PWD"), "datasets/IMDB/test.csv"]),
+    "validation_data_path": std.join("/", [std.extVar("PWD"), "datasets/IMDB/dev.csv"]),
     "evaluate_on_test": true,
     "model": {
         "type": "distilbert_sequence_classification_from_huggingface",

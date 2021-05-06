@@ -6,9 +6,9 @@ local batch_size = 64;
     "dataset_reader": {
         "type": "snli"
     },
-    "train_data_path": std.join("/", [std.extVar("PWD"), "ane_research/datasets/SNLI/snli_1.0_train.jsonl"]),
-    "test_data_path": std.join("/", [std.extVar("PWD"), "ane_research/datasets/SNLI/snli_1.0_test.jsonl"]),
-    "validation_data_path": std.join("/", [std.extVar("PWD"), "ane_research/datasets/SNLI/snli_1.0_dev.jsonl"]),
+    "train_data_path": std.join("/", [std.extVar("PWD"), "datasets/SNLI/snli_1.0_train.jsonl"]),
+    "test_data_path": std.join("/", [std.extVar("PWD"), "datasets/SNLI/snli_1.0_test.jsonl"]),
+    "validation_data_path": std.join("/", [std.extVar("PWD"), "datasets/SNLI/snli_1.0_dev.jsonl"]),
     "evaluate_on_test": true,
     "model": {
         "type": "pair_sequence_classifier",
