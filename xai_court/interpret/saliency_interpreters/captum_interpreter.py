@@ -1,4 +1,4 @@
-from typing import List, Dict, Union, Iterable, cast
+from typing import Any, List, Dict, Tuple, Union, Iterable, cast
 
 from lime import lime_text
 from lime.lime_text import LimeTextExplainer
@@ -58,9 +58,32 @@ from xai_court.models.distilbert import DistilBertForSequenceClassification
 # Registrable for captum registrations.
 class CaptumAttribution(Registrable):
 
-    def __init__(self, identifier: str, predictor: Predictor):
+    def __init__(
+        self,
+        identifier: str,
+        predictor: Predictor,
+        mask_features_by_token: bool = False,
+        attribute_args: Dict[str, Any] = None,
+    ):
+        """
+        Generic constructor for Captum Attribution Classes
+
+        Args:
+            identifier (str): unique string identifier for the attribution method (e.g., 'captum-lime')
+            predictor (Predictor): Predictor for the Model to be interpreted
+            mask_features_by_token (bool, optional): Used in Captum methods that require a feature mask.
+                                                     If True, treat each token as one feature. If False,
+                                                     treat each scalar in the embedding dimension as one
+                                                     feature. Defaults to False.
+            attribute_args (Dict[str, Any], optional): Any additional parameters passed to the `attribute`
+                                                       method (e.g., `n_samples` in LIME). Defaults to None.
+        """    
         self._id = identifier
         self.predictor = predictor
+        self.mask_features_by_token = mask_features_by_token
+        self.attribute_args = attribute_args
+        if self.attribute_args is None:
+            self.attribute_args = {}
         self.logger = logging.getLogger(Config.logger_name)
 
         if not isinstance(self.predictor._model, CaptumCompatible):
@@ -73,7 +96,12 @@ class CaptumAttribution(Registrable):
         model = self.predictor._model
 
         captum_inputs = model.instances_to_captum_inputs(labeled_instances)
-        all_args = dict(**kwargs, **self.attribute_kwargs(captum_inputs))
+
+        all_args = dict(
+            **kwargs,
+            **self.attribute_kwargs(captum_inputs, self.mask_features_by_token),
+            **self.attribute_args
+        )
 
         # TODO: remove disabling of CUDNN when https://github.com/pytorch/pytorch/issues/10006 is fixed
         with warnings.catch_warnings(), torch.backends.cudnn.flags(enabled=False):
@@ -81,10 +109,15 @@ class CaptumAttribution(Registrable):
             tensors = self.attribute(**all_args)
         field_names = model.get_field_names()
 
-        # sum out the embedding dimensions to get token importance
         attributions = {}
         for field, tensor in zip(field_names, tensors):
-            attributions[field] = tensor.sum(dim=-1).abs()
+            # Attributions were calculated per token, so each scalar in the embedding dimension will be the same
+            if self.mask_features_by_token:
+                attributions[field] = tensor.mean(dim=-1).abs()
+            # Otherwise, sum out the embedding dimensions to get token importance
+            else:
+                attributions[field] = tensor.sum(dim=-1).abs()
+
             batch_size, _, _ = tensor.shape
 
 
@@ -104,16 +137,21 @@ class CaptumAttribution(Registrable):
     def id(self):
         return self._id
 
-    def attribute_kwargs(self, captum_inputs):
+    def attribute_kwargs(self, captum_inputs: Tuple, mask_features_by_token: bool = False) -> Dict:
         """
         Args:
-          captum_inputs: result of CaptumCompatible.instances_to_captum_inputs.
+            captum_inputs (Tuple): result of CaptumCompatible.instances_to_captum_inputs.
+            mask_features_by_token (bool, optional): For Captum methods that require a feature mask,
+                                                     define each token as a feature if True. If False,
+                                                     define each scalar in the embedding dimension as a
+                                                     feature (e.g., default behavior in LIME).
+                                                     Defaults to False.
+
         Returns:
-          key-word arguments to be given to the attribute method of the
-          relevant Captum Attribution sub-class.
+            Dict: key-word arguments to be given to the attribute method of the
+                  relevant Captum Attribution sub-class.
         """
         inputs, target, additional = captum_inputs
-
         vocab = self.predictor._model.vocab
 
         # Manually check for distilbert.
@@ -127,10 +165,23 @@ class CaptumAttribution(Registrable):
         pad_idxs = tuple(pad_idx.expand(tensor.size()[:2]) for tensor in inputs)
         baselines = tuple(embedding(idx) for idx in pad_idxs)
 
-        return {'inputs' : inputs,
-                'target': target,
-                'baselines' : baselines,
-                'additional_forward_args' : additional}
+        attr_kwargs = {
+            'inputs' : inputs,
+            'target': target,
+            'baselines' : baselines,
+            'additional_forward_args' : additional
+        }
+
+        # For methods that require a feature mask, define each token as one feature
+        if mask_features_by_token:
+            # see: https://captum.ai/api/lime.html for the definition of a feature mask
+            input_tensor = inputs[0]
+            bs, seq_len, emb_dim = input_tensor.shape
+            feature_mask = torch.tensor(list(range(bs * seq_len))).reshape([bs, seq_len, 1])
+            feature_mask = feature_mask.expand(-1, -1, emb_dim)
+            attr_kwargs['feature_mask'] = feature_mask # (bs, seq_len, emb_dim)
+
+        return attr_kwargs
 
 
 @SaliencyInterpreter.register('captum')
@@ -203,3 +254,37 @@ class CaptumDeepLift(CaptumAttribution, DeepLift):
 
         self.submodel = self.predictor._model.captum_sub_model()
         DeepLift.__init__(self, self.submodel)
+
+
+# ---LIME---
+from captum.attr import Lime
+from captum._utils.models.linear_model import SkLearnRidge
+@CaptumAttribution.register('captum-lime')
+class CaptumLIME(CaptumAttribution, Lime):
+
+    def __init__(
+        self,
+        predictor: Predictor,
+        mask_features_by_token: bool = True,
+        attribute_args: Dict[str, Any] = None
+    ):
+        CaptumAttribution.__init__(self, 'lime', predictor, mask_features_by_token, attribute_args)
+        self.lin_model = SkLearnRidge()
+        self.submodel = self.predictor._model.captum_sub_model()
+        Lime.__init__(self, self.submodel, self.lin_model)
+
+
+# ---Feature Ablation---
+from captum.attr import FeatureAblation
+@CaptumAttribution.register('captum-ablation')
+class CaptumFeatureAblation(CaptumAttribution, FeatureAblation):
+
+    def __init__(
+        self,
+        predictor: Predictor,
+        mask_features_by_token: bool = True,
+        attribute_args: Dict[str, Any] = None
+    ):
+        CaptumAttribution.__init__(self, 'feature_ablation', predictor, mask_features_by_token, attribute_args)
+        self.submodel = self.predictor._model.captum_sub_model()
+        FeatureAblation.__init__(self, self.submodel)
