@@ -2,7 +2,7 @@
 
 class Config:
     '''Defines the parameters used across the code base which can be adjusted without modifying code directly'''
-    logger_name = 'attention-not-explanation'
+    logger_name = 'court-of-xai'
     package_name = 'xai_court'
 
     # 
