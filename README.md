@@ -96,6 +96,15 @@ We currently support the following components (see the existing experiment files
 
 ## Citation
 
-```bibtex
+Please cite our paper if you are using our library for your own experiments.
 
+```bibtex
+@misc{neely2021order,
+      title={Order in the Court: Explainable AI Methods Prone to Disagreement}, 
+      author={Michael Neely and Stefan F. Schouten and Maurits J. R. Bleeker and Ana Lucic},
+      year={2021},
+      eprint={2105.03287},
+      archivePrefix={arXiv},
+      primaryClass={cs.LG}
+}
 ```
