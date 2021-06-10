@@ -114,8 +114,22 @@ class AttentionCorrelationTrial(Registrable):
                 batch_scores = []
                 for sub_batch in utils.batch(labeled_batch, 2):
                     batch_scores.extend(interpreter.saliency_interpret_instances(sub_batch).values())
+                    if progress_bar:
+                        progress_bar.update(2)
+            # Per Captum docs:
+            # It is recommended to only provide a single example as input (tensors with first dimension or
+            # batch size = 1). This is because LIME is generally used for sample-based interpretability,
+            # training a separate interpretable model to explain a model’s prediction on each individual example.
+            elif 'lime' in interpreter.id:
+                batch_scores = []
+                for sub_batch in utils.batch(labeled_batch, 1):
+                    batch_scores.extend(interpreter.saliency_interpret_instances(sub_batch).values())
+                    if progress_bar:
+                        progress_bar.update(1)
             else:
                 batch_scores = interpreter.saliency_interpret_instances(labeled_batch).values()
+                if progress_bar:
+                    progress_bar.update(len(batch[0]))
 
             # # There can be more than one array of scores for an instance (e.g. in the pair sequence case)
             scores = [[np.asarray(scoreset) for scoreset in v.values()] for v in batch_scores]
@@ -129,8 +143,6 @@ class AttentionCorrelationTrial(Registrable):
             feature_importance_df['predicted'].extend(predicted_labels)
             feature_importance_df['actual'].extend(actual_labels)
 
-            if progress_bar:
-                progress_bar.update(1)
 
         return feature_importance_df
 
@@ -146,7 +158,7 @@ class AttentionCorrelationTrial(Registrable):
             self.logger.info('Calculating feature importance scores...')
 
             num_interpreters = len(self.feature_importance_interpreters) + len(self.attention_interpreters)
-            progress_bar = Tqdm.tqdm(total=self.num_batches * num_interpreters)
+            progress_bar = Tqdm.tqdm(total=self.num_batches * num_interpreters * self.batch_size)
 
             for batch in self.dataset:
                 importance_scores = self._calculate_feature_importance_batch(batch, progress_bar)
@@ -299,6 +311,7 @@ class AttentionCorrelationTrial(Registrable):
                 cuda_device = -1
 
         check_for_gpu(cuda_device)
+        logger.info(f'Using cuda device: {cuda_device}')
 
         archive = load_archive(os.path.join(serialization_dir, 'model.tar.gz'), cuda_device=cuda_device)
         predictor = Predictor.from_archive(archive, archive.config.params['model']['type'])
