@@ -5,6 +5,7 @@ import logging
 import warnings
 
 from xai_court.config import Config
+from xai_court.interpret.saliency_interpreters.baseline_generators.baseline import Baseline, BaselineCompatibleInterpreter
 
 from allennlp.predictors import Predictor
 from allennlp.nn import util
@@ -155,10 +156,8 @@ class CaptumAttribution(Registrable):
         else:
             embedding = util.find_embedding_layer(self.predictor._model)
     
-        pad_idx = vocab.get_token_index(vocab._padding_token)
-        pad_idx = torch.LongTensor([[pad_idx]]).to(inputs[0].device)
-        pad_idxs = tuple(pad_idx.expand(tensor.size()[:2]) for tensor in inputs)
-        baselines = tuple(embedding(idx) for idx in pad_idxs)
+
+        baselines =
 
         attr_kwargs = {
             'inputs' : inputs,
@@ -184,10 +183,11 @@ class CaptumAttribution(Registrable):
 
 
 @SaliencyInterpreter.register('captum')
-class CaptumInterpreter(SaliencyInterpreter):
+class CaptumInterpreter(SaliencyInterpreter, BaselineCompatibleInterpreter):
 
-    def __init__(self, predictor: Predictor, captum: CaptumAttribution) -> None:
+    def __init__(self, predictor: Predictor, captum: CaptumAttribution, baseline: Baseline) -> None:
         super().__init__(predictor)
+        BaselineCompatibleInterpreter.__init__(self, baseline)
 
         self.captum = captum
         self._id = self.captum.id

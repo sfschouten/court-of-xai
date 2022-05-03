@@ -69,23 +69,28 @@ local batch_size = 64;
                     "attribute_args": {
                         "n_samples": 1000
                     }
-                }
+                },
+                "baseline": "padding"
             },
             {
                 "type": "captum",
-                "captum": "captum-integrated-gradients"
+                "captum": "captum-integrated-gradients",
+                "baseline": "padding"
             },
             {
                 "type": "captum",
-                "captum": "captum-deepliftshap"
+                "captum": "captum-deepliftshap",
+                "baseline": "padding"
             },
             {
                 "type": "captum",
-                "captum": "captum-gradientshap"
+                "captum": "captum-gradientshap",
+                "baseline": "padding"
             },
             {
                 "type": "captum",
-                "captum": "captum-deeplift"
+                "captum": "captum-deeplift",
+                "baseline": "padding"
             }
         ],
         "correlation_measures": [
