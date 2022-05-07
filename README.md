@@ -2,7 +2,7 @@
 
 ## Introduction
 
-Code to reproduce the results reported in the paper: "Order in the Court: Explainable AI Methods Prone to Disagreement". Our framework can be used to design and run additional experiments to calculate different correlation metrics between feature additive explanation methods. Currently, we assume you are interested in comparing at least one attention-based explanation method.
+Code to reproduce the results reported in the paper: "A Song of (Dis)agreement: Evaluating the Evaluation of Explainable Artificial Intelligence in Natural Language Processing". Our framework can be used to design and run additional experiments to calculate different correlation metrics between feature additive explanation methods. Currently, we assume you are interested in comparing at least one attention-based explanation method.
 
 ## Setup
 
@@ -95,7 +95,13 @@ We currently support the following components (see the existing experiment files
   - Pearson-rho
 
 ## Citation
-
+To cite our work, please cite: [A Song of (Dis)agreement: Evaluating the Evaluation of Explainable Artificial Intelligence in Natural Language Processing]().
+```bibtex
+@inproceedings{neely2022asong,
+}
+```
+\
+Our results were also presented at the ICML Workshop on Theoretic Foundation, Criticism, and Application Trend of Explainable AI in our earlier paper [Order in the Court: Explainable AI Methods Prone to Disagreement](https://arxiv.org/abs/2105.03287).
 ```bibtex
 @misc{neely2021order,
     title={Order in the Court: Explainable AI Methods Prone to Disagreement},
