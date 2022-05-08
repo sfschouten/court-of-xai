@@ -103,12 +103,17 @@ To cite our work, please cite: [A Song of (Dis)agreement: Evaluating the Evaluat
 \
 Our results were also presented at the ICML Workshop on Theoretic Foundation, Criticism, and Application Trend of Explainable AI in our earlier paper [Order in the Court: Explainable AI Methods Prone to Disagreement](https://arxiv.org/abs/2105.03287).
 ```bibtex
-@misc{neely2021order,
-    title={Order in the Court: Explainable AI Methods Prone to Disagreement},
-    author={Michael Neely and Stefan F. Schouten and Maurits J. R. Bleeker and Ana Lucic},
-    year={2021},
-    eprint={2105.03287},
-    archivePrefix={arXiv},
-    primaryClass={cs.LG}
+@inproceedings{neely2021order,
+    title = "Order in the Court: Explainable AI Methods Prone to Disagreement",
+    author = {Neely, Michael  and
+      Schouten, Stefan F. and
+      Bleeker, Maurits J. R. and
+      Lucic, Ana},
+    booktitle = "ICML 2021 Workshop on Theoretic Foundation, Criticism, and Application Trend of Explainable AI",
+    month = jul,
+    year = "2021",
+    publisher = "International Conference on Machine Learning",
+    url = "https://arxiv.org/abs/2105.03287",
+    doi = "https://doi.org/10.48550/arXiv.2107.08821"
 }
 ```
