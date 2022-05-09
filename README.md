@@ -97,8 +97,7 @@ We currently support the following components (see the existing experiment files
 ## Citation
 To cite our work, please cite: [A Song of (Dis)agreement: Evaluating the Evaluation of Explainable Artificial Intelligence in Natural Language Processing]().
 ```bibtex
-@inproceedings{neely2022asong,
-}
+% bibtex will be included once proceedings are published
 ```
 \
 Our results were also presented at the ICML Workshop on Theoretic Foundation, Criticism, and Application Trend of Explainable AI in our earlier paper [Order in the Court: Explainable AI Methods Prone to Disagreement](https://arxiv.org/abs/2105.03287).
