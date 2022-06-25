@@ -2,7 +2,9 @@
 
 ## Introduction
 
-Code to reproduce the results reported in the paper: "A Song of (Dis)agreement: Evaluating the Evaluation of Explainable Artificial Intelligence in Natural Language Processing". Our framework can be used to design and run additional experiments to calculate different correlation metrics between feature additive explanation methods. Currently, we assume you are interested in comparing at least one attention-based explanation method.
+Code to reproduce the results reported in the paper: "A Song of (Dis)agreement: Evaluating the Evaluation of Explainable Artificial Intelligence in Natural Language Processing" (see [song_of_disagreement/paper.pdf](song_of_disagreement/paper.pdf)). Appendices can be found in [song_of_disagreement/appendices](song_of_disagreement/appendices).
+
+This framework can be used to design and run additional experiments to calculate different correlation metrics between feature additive explanation methods. Currently, we assume you are interested in comparing at least one attention-based explanation method.
 
 ## Setup
 
