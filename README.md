@@ -99,7 +99,19 @@ We currently support the following components (see the existing experiment files
 ## Citation
 To cite our work, please cite: [A Song of (Dis)agreement: Evaluating the Evaluation of Explainable Artificial Intelligence in Natural Language Processing]().
 ```bibtex
-% bibtex will be included once proceedings are published
+
+@incollection{neely_song_2022,
+	title = {A {Song} of ({Dis})agreement: {Evaluating} the {Evaluation} of {Explainable} {Artificial} {Intelligence} in {Natural} {Language} {Processing}},
+	copyright = {All rights reserved},
+	shorttitle = {A {Song} of ({Dis})agreement},
+	url = {https://ebooks.iospress.nl/doi/10.3233/FAIA220190},
+	booktitle = {{HHAI2022}: {Augmenting} {Human} {Intellect}},
+	publisher = {IOS Press},
+	author = {Neely, Michael and Schouten, Stefan F. and Bleeker, Maurits and Lucic, Ana},
+	year = {2022},
+	doi = {10.3233/FAIA220190},
+	pages = {60--78},
+}
 ```
 \
 Our results were also presented at the ICML Workshop on Theoretic Foundation, Criticism, and Application Trend of Explainable AI in our earlier paper [Order in the Court: Explainable AI Methods Prone to Disagreement](https://arxiv.org/abs/2105.03287).
