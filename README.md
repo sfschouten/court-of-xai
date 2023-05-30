@@ -97,7 +97,7 @@ We currently support the following components (see the existing experiment files
   - Pearson-rho
 
 ## Citation
-To cite our work, please cite: [A Song of (Dis)agreement: Evaluating the Evaluation of Explainable Artificial Intelligence in Natural Language Processing]().
+To cite our work, please cite: [A Song of (Dis)agreement: Evaluating the Evaluation of Explainable Artificial Intelligence in Natural Language Processing](https://ebooks.iospress.nl/doi/10.3233/FAIA220190).
 ```bibtex
 
 @incollection{neely_song_2022,
